@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import ReactFlow, { Background, useReactFlow, ReactFlowProvider } from 'reactflow';
+import ReactFlow, { Background, useReactFlow, ReactFlowProvider, SelectionMode } from 'reactflow';
 import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
 import { AssetNode, ToolNode, GroupNode } from './nodes.jsx';
@@ -172,10 +172,12 @@ function Flow() {
         minZoom={0.1}
         maxZoom={3}
         zoomOnDoubleClick={false}
-        panOnDrag={!canvasLocked}
+        panOnDrag={canvasLocked ? false : [1, 2]}
         zoomOnScroll={!canvasLocked}
         zoomOnPinch={!canvasLocked}
         selectionOnDrag={!canvasLocked}
+        selectionMode={SelectionMode.Partial}
+        selectionKeyCode="Shift"
         defaultEdgeOptions={{ animated: true }}
       >
         <Background variant="dots" gap={24} size={1.6} color="#33333f" />

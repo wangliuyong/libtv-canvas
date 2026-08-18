@@ -90,11 +90,11 @@ export default function AssetPanel() {
           <div className="assets-grid">
             {pageItems.map((a, i) => (
               <div key={(a.filename || i) + '_' + i} className="asset-card">
-                {a.media === 'image' ? <img src={a.url} alt="" onClick={() => insert(a)} title="点击插入为节点" />
-                  : a.media === 'video' ? <video src={a.url} muted onClick={() => insert(a)} title="点击插入为节点" />
+                {a.media === 'image' ? <img src={a.url} alt="" onDoubleClick={() => insert(a)} title="双击插入到画布" />
+                  : a.media === 'video' ? <video src={a.url} muted onDoubleClick={() => insert(a)} title="双击插入到画布" />
                   : <audio src={a.url} controls />}
                 <div className="asset-name">{a.filename}</div>
-                <button className="mini" onClick={() => insert(a)}>插入画布</button>
+                <div className="asset-hint">双击插入画布</div>
               </div>
             ))}
           </div>

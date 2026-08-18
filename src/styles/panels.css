@@ -103,6 +103,12 @@
 }
 .asset-card audio { width: 100%; margin-top: 4px; }
 .asset-name { font-size: 10.5px; color: var(--text-3); word-break: break-all; margin: 6px 2px 7px; font-family: var(--mono); }
+.asset-hint {
+  font-size: 10px; color: var(--text-3); text-align: center; padding: 3px 0;
+  border: 1px dashed var(--border); border-radius: var(--r-sm); opacity: .75;
+  transition: all var(--t-fast);
+}
+.asset-card:hover .asset-hint { color: var(--accent); border-color: var(--accent); opacity: 1; }
 
 /* 分页栏：固定在列表底部，不随列表滚动 */
 .pager {
