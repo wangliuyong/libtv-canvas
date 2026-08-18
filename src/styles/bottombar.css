@@ -66,15 +66,6 @@
   cursor: pointer; transition: all var(--t-fast);
 }
 .anm-item:hover { background: var(--surface-2); }
-.anm-item > :first-child {
-  display: inline-grid; place-items: center;
-  width: 24px; height: 24px; border-radius: 7px; flex: 0 0 24px;
-  background: var(--accent-soft); color: var(--accent);
-}
-.anm-item[data-kind="image"] > :first-child { background: rgba(248,113,113,.16); color: #fca5a5; }
-.anm-item[data-kind="video"] > :first-child { background: rgba(59,130,246,.16); color: #93c5fd; }
-.anm-item[data-kind="audio"] > :first-child { background: rgba(168,85,247,.16); color: #d8b4fe; }
-.anm-item[data-kind="script"] > :first-child { background: rgba(251,191,36,.16); color: #fcd34d; }
-.anm-item.tool > :first-child { background: linear-gradient(135deg, rgba(168,85,247,.22), rgba(124,140,255,.18)); color: #d8b4fe; }
+.anm-item > :first-child { flex: 0 0 auto; color: var(--text); }
 .anm-item.scaf { opacity: .6; }
 .anm-item.scaf:hover { opacity: .95; }

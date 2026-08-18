@@ -23,7 +23,7 @@ export default function BottomToolbar() {
   const toggleCanvasLock = useStore((s) => s.toggleCanvasLock);
   const fetchRemoteList = useStore((s) => s.fetchRemoteList);
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const barRef = useRef(null);
 
   const grouped = {};
   TOOLS.forEach((t) => { (grouped[t.cat] = grouped[t.cat] || []).push(t); });
@@ -41,19 +41,21 @@ export default function BottomToolbar() {
     else document.exitFullscreen?.();
   };
 
+  // 点击节点列表（含底部工具条容器）之外任意位置 → 收起菜单
+  // 捕获阶段监听，避开 React Flow 对画布 mousedown 的 stopPropagation
   useEffect(() => {
     if (!menuOpen) return;
     const close = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      if (barRef.current && !barRef.current.contains(e.target)) setMenuOpen(false);
     };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    document.addEventListener('mousedown', close, true);
+    return () => document.removeEventListener('mousedown', close, true);
   }, [menuOpen]);
 
   return (
-    <div className="bottom-bar">
+    <div className="bottom-bar" ref={barRef}>
       {menuOpen && (
-        <div className="add-node-menu" ref={menuRef}>
+        <div className="add-node-menu">
           <div className="anm-title">添加节点</div>
           <div className="anm-sec">
             {BASIC.map((b) => (
@@ -88,7 +90,7 @@ export default function BottomToolbar() {
       )}
 
       <div className="bottom-pill">
-        <button className={'bb-btn' + (menuOpen ? ' on' : '')} onClick={() => setMenuOpen((v) => !v)} title="添加节点">
+        <button className="bb-btn" onClick={() => setMenuOpen((v) => !v)} title="添加节点">
           <Icon name="plus" size={18} />
         </button>
         <span className="bb-sep" />
