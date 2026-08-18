@@ -205,7 +205,7 @@ app.get('/api/remote-list', async (req, res) => {
       const msgs = (rec.status && rec.status.messages) || [];
       const ts = msgs.reduce((m, mm) => Math.max(m, (mm && mm[1] && mm[1].timestamp) || 0), 0);
       for (const out of Object.values(outputs)) {
-        const buckets = ['images', 'gifs', 'videos', 'audios'];
+        const buckets = ['images', 'gifs', 'videos', 'audios', 'audio'];
         for (const key of buckets) {
           for (const f of out[key] || []) {
             const filename = f.filename;
