@@ -16,6 +16,8 @@ export default function App() {
   const edges = useStore((s) => s.edges);
   const setNodes = useStore((s) => s.setNodes);
   const setEdges = useStore((s) => s.setEdges);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
   const [backendDown, setBackendDown] = useState(false);
   const [projTip, setProjTip] = useState('');
   const [configOpen, setConfigOpen] = useState(false);
@@ -47,6 +49,20 @@ export default function App() {
     const t = setTimeout(() => setProjTip(''), 2500);
     return () => clearTimeout(t);
   }, [projTip]);
+
+  // 全局撤销/重做：Ctrl/Cmd+Z 撤销，Shift+Ctrl/Cmd+Z 重做；输入框内不拦截，保留原生文本撤销
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+      const t = e.target;
+      const tag = (t && t.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
 
   // 工作流下载为本地 JSON（保存 / 导出共用）
   const downloadJSON = (filename) => {

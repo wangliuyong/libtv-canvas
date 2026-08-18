@@ -4,6 +4,7 @@ import { getTool } from '../server/tools.js';
 
 let _id = 1;
 const uid = (p = 'n') => `${p}_${Date.now().toString(36)}_${_id++}`;
+const clone = (arr) => JSON.parse(JSON.stringify(arr));
 
 // 节点默认尺寸：宽度固定（舒适初始宽度），高度由内容自适应；
 // 作为 NodeResizer 的基准，缩放可双向生效。重置尺寸时恢复到这里。
@@ -22,6 +23,8 @@ function viewUrl(a) {
 export const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
+  past: [],
+  future: [],
   selectedId: null,
   models: null,
   assets: [], // 全局资产库
@@ -38,14 +41,50 @@ export const useStore = create((set, get) => ({
   closeNodeModal: () => set({ nodeModalId: null }),
 
   setSelected: (id) => set({ selectedId: id }),
-  setNodes: (n) => set({ nodes: n }),
-  setEdges: (e) => set({ edges: e }),
+  setNodes: (n) => { get().snapshot(); set({ nodes: n }); },
+  setEdges: (e) => { get().snapshot(); set({ edges: e }); },
 
-  onNodesChange: (c) => set({ nodes: applyNodeChanges(c, get().nodes) }),
-  onEdgesChange: (c) => set({ edges: applyEdgeChanges(c, get().edges) }),
+  // 撤销/重做：每次结构性变更前调用 snapshot()，把当前 nodes/edges 压入 past 并清空 future
+  snapshot: () => set((s) => ({
+    past: [...s.past, { nodes: clone(s.nodes), edges: clone(s.edges) }].slice(-100),
+    future: [],
+  })),
+  undo: () => {
+    const { past, nodes, edges, future } = get();
+    if (!past.length) return;
+    const prev = past[past.length - 1];
+    set({
+      nodes: prev.nodes,
+      edges: prev.edges,
+      past: past.slice(0, -1),
+      future: [...future, { nodes: clone(nodes), edges: clone(edges) }].slice(-100),
+    });
+  },
+  redo: () => {
+    const { future, nodes, edges, past } = get();
+    if (!future.length) return;
+    const next = future[future.length - 1];
+    set({
+      nodes: next.nodes,
+      edges: next.edges,
+      future: future.slice(0, -1),
+      past: [...past, { nodes: clone(nodes), edges: clone(edges) }].slice(-100),
+    });
+  },
+
+  onNodesChange: (c) => {
+    // 仅在「删除」或「拖拽结束」这类提交型变更前记录快照（忽略拖拽过程、选中、尺寸等高频变更）
+    if (c.some((ch) => ch.type === 'remove' || (ch.type === 'position' && ch.dragging === false))) get().snapshot();
+    set({ nodes: applyNodeChanges(c, get().nodes) });
+  },
+  onEdgesChange: (c) => {
+    if (c.some((ch) => ch.type === 'remove')) get().snapshot();
+    set({ edges: applyEdgeChanges(c, get().edges) });
+  },
   onConnect: (conn) => {
     // 仅允许 输出类型 === 输入类型 的连接
     if (conn.sourceHandle !== conn.targetHandle) return;
+    get().snapshot();
     set({ edges: addEdge({ ...conn, animated: true }, get().edges) });
   },
 
@@ -59,6 +98,7 @@ export const useStore = create((set, get) => ({
       data: { kind, label: labels[kind] || kind, text: '', filename: '', subfolder: '', type: 'input', assetUrl: '' },
       style: { ...NODE_DEFAULT_STYLE.asset },
     };
+    get().snapshot();
     set({ nodes: [...get().nodes, node], selectedId: id });
     return id;
   },
@@ -76,6 +116,7 @@ export const useStore = create((set, get) => ({
       data: { kind: 'tool', tool: toolId, label: def.name, params, status: 'idle', result: null, error: '' },
       style: { ...NODE_DEFAULT_STYLE.tool },
     };
+    get().snapshot();
     set({ nodes: [...get().nodes, node], selectedId: id });
     return id;
   },
@@ -84,12 +125,14 @@ export const useStore = create((set, get) => ({
     set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }),
 
   // 重置节点尺寸：恢复到创建时的默认尺寸（宽度固定、高度由内容自适应），而非清空
-  resetNodeSize: (id) =>
+  resetNodeSize: (id) => {
+    get().snapshot();
     set({ nodes: get().nodes.map((n) => {
       if (n.id !== id) return n;
       const def = NODE_DEFAULT_STYLE[n.type] || {};
       return { ...n, style: { ...def } };
-    }) }),
+    }) });
+  },
 
   // 资产入库（本地上传 / 远程产出共用），按 filename+type+source 去重
   addAsset: (a) =>
@@ -99,8 +142,10 @@ export const useStore = create((set, get) => ({
       return { assets: [...s.assets, a] };
     }),
 
-  deleteNode: (id) =>
-    set({ nodes: get().nodes.filter((n) => n.id !== id), edges: get().edges.filter((e) => e.source !== id && e.target !== id), selectedId: get().selectedId === id ? null : get().selectedId }),
+  deleteNode: (id) => {
+    get().snapshot();
+    set({ nodes: get().nodes.filter((n) => n.id !== id), edges: get().edges.filter((e) => e.source !== id && e.target !== id), selectedId: get().selectedId === id ? null : get().selectedId });
+  },
 
   // 复制节点（偏移一点位置，避免完全重叠）
   duplicateNode: (id) => {
@@ -112,11 +157,12 @@ export const useStore = create((set, get) => ({
     clone.position = { x: n.position.x + 48, y: n.position.y + 48 };
     clone.selected = false;
     clone.data = { ...clone.data, status: n.type === 'tool' ? 'idle' : clone.data.status, result: n.type === 'tool' ? null : clone.data.result, error: '' };
+    get().snapshot();
     set({ nodes: [...get().nodes, clone], selectedId: nid });
     return nid;
   },
 
-  clearCanvas: () => set({ nodes: [], edges: [], selectedId: null, nodeModalId: null }),
+  clearCanvas: () => { get().snapshot(); set({ nodes: [], edges: [], selectedId: null, nodeModalId: null }); },
 
   // 多机位宫格：从一张图片/视频节点展开 cols×cols 个同源子节点（可单独替换/编辑）
   expandGrid: (nodeId, cols = 3) => {
@@ -138,6 +184,7 @@ export const useStore = create((set, get) => ({
         });
       }
     }
+    get().snapshot();
     set({ nodes: [...get().nodes, ...created] });
     return created.map((c) => c.id);
   },
@@ -156,6 +203,7 @@ export const useStore = create((set, get) => ({
         data: { ...JSON.parse(JSON.stringify(src.data)), label: `推演 ${dir === 'after' ? '+' : '-'}${i * 3}s`, infer: dir },
       });
     }
+    get().snapshot();
     set({ nodes: [...get().nodes, ...created] });
     return created.map((c) => c.id);
   },
