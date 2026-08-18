@@ -188,6 +188,24 @@ export const TOOLS = [
     ],
   },
   {
+    id: 'ref2i', name: '参考图生图', cat: 'image', icon: '🖼️➡️🖼️',
+    desc: '以一张参考图为基础，按提示词重绘生成新图（img2img，SDXL）',
+    inputs: [
+      { key: 'image', label: '参考图', type: 'image', required: true },
+      { key: 'prompt', label: '提示词', type: 'text', required: true },
+      { key: 'negative', label: '负向词', type: 'text' },
+    ],
+    outputs: ['image'],
+    params: [
+      { key: 'ckpt', label: '模型', type: 'select', model: 'checkpoints', default: 'epicrealism_xl.safetensors' },
+      { key: 'denoise', label: '重绘强度', type: 'number', default: 0.6 },
+      { key: 'steps', label: '步数', type: 'number', default: 30 },
+      { key: 'cfg', label: 'CFG', type: 'number', default: 7 },
+      { key: 'seed', label: '种子', type: 'number', default: 0 },
+      { key: 'prefix', label: '文件名前缀', type: 'text', default: 'ref2i' },
+    ],
+  },
+  {
     id: 'color', name: '调色', cat: 'image', icon: '🎨',
     desc: '色彩迁移：把目标图色调匹配到参考视频/图',
     inputs: [
@@ -217,6 +235,18 @@ export const TOOLS = [
     ],
     outputs: ['image'],
     params: [],
+  },
+  {
+    id: 'compose', name: '视频合成', cat: 'video', icon: '🎞️',
+    desc: '把多条视频片段按序拼接成成片（服务端 ffmpeg concat 拼接，无需远程渲染）',
+    inputs: [
+      { key: 'clip1', label: '片段1', type: 'video', required: true },
+      { key: 'clip2', label: '片段2', type: 'video' },
+      { key: 'clip3', label: '片段3', type: 'video' },
+      { key: 'clip4', label: '片段4', type: 'video' },
+    ],
+    outputs: ['video'],
+    params: [{ key: 'fps', label: '帧率', type: 'number', default: 24 }],
   },
 ];
 
@@ -249,6 +279,43 @@ function t2iChain(idStart, p, prompt, neg, prefix) {
   const sv = String(i++);
   n[sv] = { class_type: 'SaveImage', inputs: { images: [dec, 0], filename_prefix: prefix } };
   return { nodes: n, saveId: sv };
+}
+
+// ---- 内部：构建 img2img 链（参考图 → VAEEncode → KSampler(denoise<1) → 出图）----
+function i2iChain(idStart, p, prompt, neg, prefix) {
+  const n = {};
+  let i = idStart;
+  const ck = String(i++);
+  n[ck] = { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: p.ckpt } };
+  const pos = String(i++);
+  n[pos] = { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: [ck, 1] } };
+  const negN = String(i++);
+  n[negN] = { class_type: 'CLIPTextEncode', inputs: { text: neg, clip: [ck, 1] } };
+  const load = String(i++);
+  n[load] = { class_type: 'LoadImage', inputs: { image: p.image } };
+  const enc = String(i++);
+  n[enc] = { class_type: 'VAEEncode', inputs: { pixels: [load, 0], vae: [ck, 2] } };
+  const k = String(i++);
+  n[k] = {
+    class_type: 'KSampler',
+    inputs: {
+      model: [ck, 0], positive: [pos, 0], negative: [negN, 0], latent_image: [enc, 0],
+      seed: p.seed | 0, steps: p.steps | 0, cfg: p.cfg, sampler_name: 'euler', scheduler: 'normal',
+      denoise: P_denoise(p.denoise),
+    },
+  };
+  const dec = String(i++);
+  n[dec] = { class_type: 'VAEDecode', inputs: { samples: [k, 0], vae: [ck, 2] } };
+  const sv = String(i++);
+  n[sv] = { class_type: 'SaveImage', inputs: { images: [dec, 0], filename_prefix: prefix } };
+  return { nodes: n, saveId: sv };
+}
+
+// 重绘强度兜底（0~1，默认 0.6）
+function P_denoise(v) {
+  const x = Number(v);
+  if (!isFinite(x)) return 0.6;
+  return Math.min(1, Math.max(0, x));
 }
 
 // ---- 翻译入口 ----
@@ -325,6 +392,10 @@ export function translate(toolId, params = {}, inputs = {}) {
         id = Math.max(...Object.keys(n).map(Number)) + 1;
       }
       return { prompt: n, saveNodes: saves };
+    }
+    case 'ref2i': {
+      const r = i2iChain(10, { ...P, image: inputs.image, denoise: P.denoise, steps: P.steps || 30, cfg: P.cfg || 7, seed: P.seed || 0 }, prompt, neg, P.prefix || 'ref2i');
+      return { prompt: r.nodes, saveNodes: [{ id: r.saveId, media: 'image' }] };
     }
     case 't2i':
     default: {

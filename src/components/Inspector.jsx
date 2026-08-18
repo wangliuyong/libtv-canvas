@@ -1,7 +1,25 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
 import Icon from './icons.jsx';
+
+const ASPECTS = [
+  { id: '16:9', w: 16, h: 9 },
+  { id: '9:16', w: 9, h: 16 },
+  { id: '1:1', w: 1, h: 1 },
+  { id: '4:3', w: 4, h: 3 },
+];
+const RESS = { '1K': 1280, '2K': 2560, '4K': 3840 };
+
+// 由画幅 + 分辨率推导像素宽高（长边取分辨率值，按画幅比例计算短边）
+function computeWH(aspectId, res) {
+  const a = ASPECTS.find((x) => x.id === aspectId) || ASPECTS[0];
+  const long = RESS[res] || 1920;
+  let w, h;
+  if (a.w >= a.h) { w = long; h = Math.round(long * a.h / a.w); }
+  else { h = long; w = Math.round(long * a.w / a.h); }
+  return { w, h };
+}
 
 function ParamField({ p, value, onChange, models }) {
   if (p.type === 'select') {
@@ -38,21 +56,40 @@ export default function Inspector({ nodeId } = {}) {
   const id = nodeId ?? selectedId;
   const node = useStore((s) => s.nodes.find((n) => n.id === id));
   const models = useStore((s) => s.models);
+  const assets = useStore((s) => s.assets);
   const updateNodeData = useStore((s) => s.updateNodeData);
+  const addAsset = useStore((s) => s.addAsset);
   const runNode = useStore((s) => s.runNode);
   const deleteNode = useStore((s) => s.deleteNode);
+  const resetNodeSize = useStore((s) => s.resetNodeSize);
+  const toggleAssetDrawer = useStore((s) => s.toggleAssetDrawer);
   const fileRef = useRef(null);
+  const [libOpen, setLibOpen] = useState(null); // 当前打开资产库选择器的输入 key
 
   if (!node) return <div className="empty">选中一个节点以编辑属性</div>;
 
-  const onUpload = async (e) => {
+  const setRef = (key, val) => {
+    const refs = { ...(node.data.refs || {}) };
+    if (val == null) delete refs[key];
+    else refs[key] = val;
+    updateNodeData(node.id, { refs });
+  };
+
+  const onUpload = async (e, key, mediaType) => {
     const f = e.target.files[0]; if (!f) return;
-    const fd = new FormData(); fd.append('file', f);
-    const r = await fetch('/api/upload', { method: 'POST', body: fd });
-    const j = await r.json();
-    const qs = new URLSearchParams({ filename: j.name, type: j.type || 'input' });
-    if (j.subfolder) qs.set('subfolder', j.subfolder);
-    updateNodeData(node.id, { filename: j.name, subfolder: j.subfolder || '', type: j.type || 'input', assetUrl: `/api/view?${qs}`, label: f.name });
+    try {
+      const fd = new FormData(); fd.append('file', f);
+      const r = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (j.error) throw new Error(j.error);
+      const assetUrl = `/api/view?${new URLSearchParams({ filename: j.name, type: j.type || mediaType, ...(j.subfolder ? { subfolder: j.subfolder } : {}) })}`;
+      if (key) setRef(key, { reupload: { filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType }, assetUrl, label: f.name });
+      else updateNodeData(node.id, { filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType, assetUrl, label: f.name });
+      addAsset({ filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType, media: mediaType, url: assetUrl, label: f.name, source: 'local' });
+    } catch (err) {
+      updateNodeData(node.id, { error: '上传失败：' + (err.message || err) });
+    }
   };
 
   if (node.data.kind !== 'tool') {
@@ -68,7 +105,7 @@ export default function Inspector({ nodeId } = {}) {
         ) : (
           <>
             <button className="run" onClick={() => fileRef.current.click()}>上传媒体文件</button>
-            <input ref={fileRef} type="file" hidden onChange={onUpload} />
+            <input ref={fileRef} type="file" hidden onChange={(e) => onUpload(e, null, d.kind)} />
             {d.assetUrl && (
               <div className="prev">
                 {d.kind === 'image' ? <img src={d.assetUrl} alt="" />
@@ -79,6 +116,7 @@ export default function Inspector({ nodeId } = {}) {
             <div className="fname">{d.filename}</div>
           </>
         )}
+        <button className="btn-outline" onClick={() => resetNodeSize(node.id)}>重置尺寸</button>
         <button className="del" onClick={() => deleteNode(node.id)}>删除节点</button>
       </div>
     );
@@ -86,14 +124,103 @@ export default function Inspector({ nodeId } = {}) {
 
   const def = getTool(node.data.tool);
   const params = node.data.params || {};
+  const refs = node.data.refs || {};
+  const isGen = (def.outputs || []).some((o) => o === 'image' || o === 'video');
+
+  const applyScreen = (aspectId, res) => {
+    const { w, h } = computeWH(aspectId, res);
+    updateNodeData(node.id, { params: { ...params, _aspect: aspectId, _res: res, width: w, height: h } });
+  };
+
   return (
     <div className="insp">
       <div className="insp-h"><Icon name={def.id} /> {def.name}</div>
       <div className="desc">{def.desc}</div>
-      {(def.params || []).map((p) => (
-        <ParamField key={p.key} p={p} value={params[p.key]} models={models}
-          onChange={(v) => updateNodeData(node.id, { params: { ...params, [p.key]: v } })} />
-      ))}
+
+      {/* 参考图 / 提示词 输入槽 */}
+      {(def.inputs || []).length > 0 && (
+        <div className="refs">
+          <div className="refs-h">输入参考</div>
+          {def.inputs.map((inp) => {
+            const ref = refs[inp.key];
+            const isText = inp.type === 'text';
+            return (
+              <div className="ref-slot" key={inp.key}>
+                <div className="ref-top">
+                  <span className="ref-name">{inp.label}{inp.required ? ' *' : ''}</span>
+                  <span className="ref-type">{inp.type}</span>
+                </div>
+                {isText ? (
+                  <textarea rows={3} placeholder="提示词 / 文本…" value={typeof ref === 'string' ? ref : ''}
+                    onChange={(e) => setRef(inp.key, e.target.value)} />
+                ) : (
+                  <>
+                    <div className="ref-media">
+                      {ref?.assetUrl ? (
+                        inp.type === 'video' ? <video src={ref.assetUrl} muted />
+                          : inp.type === 'audio' ? <audio src={ref.assetUrl} controls />
+                          : <img src={ref.assetUrl} alt="" />
+                      ) : <div className="ph">未设置参考</div>}
+                    </div>
+                    <div className="ref-actions">
+                      <label className="mini">上传<input type="file" hidden onChange={(e) => onUpload(e, inp.key, inp.type)} /></label>
+                      <button className="mini" onClick={() => { setLibOpen(libOpen === inp.key ? null : inp.key); if (libOpen !== inp.key) toggleAssetDrawer(); }}>从资产库选</button>
+                      {ref && <button className="mini ghost" onClick={() => setRef(inp.key, null)}>清除</button>}
+                    </div>
+                    {libOpen === inp.key && (
+                      <div className="lib-pick">
+                        {assets.length === 0 && <div className="ph">资产库为空，先运行上游节点或上传</div>}
+                        {assets.filter((a) => a.media === inp.type || !a.media).slice(0, 12).map((a, i) => (
+                          <button key={i} className="lib-item" onClick={() => { setRef(inp.key, { reupload: { filename: a.filename, subfolder: a.subfolder, type: a.type }, assetUrl: a.url, label: a.filename }); setLibOpen(null); }}>
+                            <img src={a.url} alt="" /><span>{a.filename}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 画面设置：画幅 / 分辨率 / 画质 / 张数（生成类工具） */}
+      {isGen && (
+        <div className="screen">
+          <div className="refs-h">画面设置</div>
+          <label className="pf"><span>画幅</span>
+            <select value={params._aspect || '16:9'} onChange={(e) => applyScreen(e.target.value, params._res || '2K')}>
+              {ASPECTS.map((a) => <option key={a.id} value={a.id}>{a.id}</option>)}
+            </select>
+          </label>
+          <label className="pf"><span>分辨率</span>
+            <select value={params._res || '2K'} onChange={(e) => applyScreen(params._aspect || '16:9', e.target.value)}>
+              {Object.keys(RESS).map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          <label className="pf"><span>画质</span>
+            <select value={params._quality || 'standard'} onChange={(e) => updateNodeData(node.id, { params: { ...params, _quality: e.target.value, steps: e.target.value === 'hd' ? 20 : 8 } })}>
+              <option value="standard">标准</option>
+              <option value="hd">高清</option>
+            </select>
+          </label>
+          <label className="pf"><span>张数</span>
+            <input type="number" min={1} max={4} value={params._count || 1} onChange={(e) => updateNodeData(node.id, { params: { ...params, _count: Math.max(1, Number(e.target.value) || 1) } })} />
+          </label>
+          <div className="wh-hint">输出 {(params.width || computeWH(params._aspect || '16:9', params._res || '2K').w)} × {(params.height || computeWH(params._aspect || '16:9', params._res || '2K').h)}</div>
+        </div>
+      )}
+
+      {/* 其余参数 */}
+      <div className="params">
+        <div className="refs-h">参数</div>
+        {(def.params || []).filter((p) => !['width', 'height', 'steps'].includes(p.key)).map((p) => (
+          <ParamField key={p.key} p={p} value={params[p.key]} models={models}
+            onChange={(v) => updateNodeData(node.id, { params: { ...params, [p.key]: v } })} />
+        ))}
+      </div>
+
       <button className="run big" disabled={node.data.status === 'running'} onClick={() => runNode(node.id)}>
         {node.data.status === 'running' ? '生成中…' : <><Icon name="play" size={14} /> 运行此节点</>}
       </button>
@@ -108,6 +235,7 @@ export default function Inspector({ nodeId } = {}) {
           ))}
         </div>
       )}
+      <button className="btn-outline" onClick={() => resetNodeSize(node.id)}>重置尺寸</button>
       <button className="del" onClick={() => deleteNode(node.id)}>删除节点</button>
     </div>
   );

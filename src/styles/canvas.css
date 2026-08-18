@@ -48,3 +48,28 @@
 /* 节点默认选中描边去掉，由 .lnode.sel 控制 */
 .react-flow__node.selected { box-shadow: none; }
 .react-flow__node { font-family: var(--font); }
+
+/* 节点缩放手柄（NodeResizer）暗色适配 */
+.react-flow__resize-control.handle {
+  width: 9px; height: 9px; border-radius: 2px;
+  background: var(--accent); border: 1.5px solid #fff;
+}
+.react-flow__resize-control.line { border-color: var(--accent); border-width: 1px; }
+
+/* 选中节点的上下游连线 + 相关节点高亮（依赖关系） */
+.react-flow__edge.dep .react-flow__edge-path { stroke: var(--accent-2); stroke-width: 2.6px; opacity: 1; }
+.react-flow__node.dep .lnode { border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--accent-ring), var(--sh-md); }
+
+/* 分镜组容器节点 */
+.react-flow__node-group .group-node {
+  width: 100%; height: 100%; min-height: 120px;
+  border: 2px dashed var(--border-2); border-radius: var(--r-lg);
+  background: rgba(124,140,255,.05);
+  display: flex; align-items: flex-start;
+}
+.group-label {
+  margin: 9px 0 0 13px; font-size: 11.5px; font-weight: 700;
+  color: var(--text-3); letter-spacing: .05em; text-transform: uppercase;
+  background: var(--surface); padding: 2px 11px; border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+}

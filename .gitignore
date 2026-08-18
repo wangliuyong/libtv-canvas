@@ -36,3 +36,6 @@ playwright-report/
 eslint-report.json
 stylelint-report.json
 vite.config.ts.timestamp-*
+
+# 服务端合成视频落地目录（运行时生成）
+server/composed

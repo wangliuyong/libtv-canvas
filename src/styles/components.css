@@ -5,10 +5,11 @@
 /* —— 节点卡片 —— */
 .lnode {
   position: relative;
+  width: 100%; height: 100%; min-width: 0; box-sizing: border-box;
   background: var(--surface);
   border: 1.5px solid var(--border-2);
   border-radius: var(--r-lg);
-  padding: 11px 13px; min-width: 202px;
+  padding: 11px 13px;
   box-shadow: var(--sh-md);
   font-size: 13px;
   transition: box-shadow var(--t), transform var(--t-fast), border-color var(--t-fast);
@@ -17,15 +18,27 @@
 .lnode.sel { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-ring), var(--sh-lg); }
 
 .lnode-h { display: flex; align-items: center; gap: 9px; font-weight: 700; margin-bottom: 8px; }
+.node-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lnode-h > :first-child {
   display: inline-grid; place-items: center;
   width: 28px; height: 28px; border-radius: 9px; flex: 0 0 28px;
   background: var(--accent-soft); color: var(--accent);
 }
-.lnode.asset { border-color: var(--node-asset); }
+.lnode.asset { border-color: var(--node-asset); min-height: 64px; }
 .lnode.asset .lnode-h > :first-child { background: var(--accent-soft); color: var(--accent); }
-.lnode.tool { border-color: var(--node-tool); }
+.lnode.tool { border-color: var(--node-tool); min-height: 96px; }
 .lnode.tool .lnode-h > :first-child { background: rgba(168,85,247,.16); color: var(--node-tool); }
+
+/* 选中时的「重置尺寸」小按钮（贴合标题右侧） */
+.node-reset {
+  margin-left: auto; flex: 0 0 auto;
+  width: 22px; height: 22px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-2);
+  display: inline-grid; place-items: center;
+  transition: all var(--t-fast);
+}
+.node-reset:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.lnode.tool .node-reset { margin-left: 8px; }
 .lnode-h .badge {
   margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-2);
   background: var(--surface-2); border: 1px solid var(--border);
@@ -52,11 +65,11 @@
 /* 媒体区 */
 .media { display: flex; flex-direction: column; gap: 7px; align-items: center; }
 .media img, .media video {
-  max-width: 184px; max-height: 134px; border-radius: var(--r-sm);
+  width: 100%; max-width: 280px; max-height: 220px; object-fit: contain; border-radius: var(--r-sm);
   background: #000; box-shadow: var(--sh-sm); border: 1px solid var(--border);
 }
 .media .ph {
-  width: 184px; height: 98px; background: var(--surface-2);
+  width: 100%; max-width: 184px; height: 98px; background: var(--surface-2);
   border: 1.5px dashed var(--border-2); border-radius: var(--r-sm);
   display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 12px;
 }
@@ -130,3 +143,46 @@
 }
 .modal-close:hover { background: var(--surface-3); color: var(--text); }
 .modal-body { overflow-y: auto; }
+
+/* ============================ 右键上下文菜单 ============================ */
+.ctx-menu {
+  position: fixed; z-index: 200; min-width: 178px;
+  background: var(--surface); border: 1px solid var(--border-2);
+  border-radius: var(--r-md); box-shadow: var(--sh-lg); padding: 6px;
+  animation: modal-pop var(--t-fast);
+}
+.ctx-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  border: none; background: transparent; color: var(--text);
+  padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer;
+  font-size: 13px; text-align: left;
+}
+.ctx-item:hover { background: var(--accent-soft); color: var(--accent); }
+.ctx-item.danger { color: var(--error); }
+.ctx-item.danger:hover { background: rgba(239,68,68,.12); color: var(--error); }
+.ctx-tip {
+  position: absolute; left: 50%; bottom: 54px; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border-2); color: var(--text-2);
+  padding: 8px 14px; border-radius: var(--r-pill); font-size: 12.5px;
+  box-shadow: var(--sh-md); z-index: 50;
+}
+
+/* ============================ 属性面板：参考槽 / 画面设置 ============================ */
+.refs, .screen, .params { margin-top: 15px; }
+.refs-h { font-size: 11.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 9px; }
+.ref-slot { border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; margin-bottom: 10px; background: var(--surface-2); }
+.ref-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.ref-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.ref-type { font-size: 10.5px; color: var(--text-3); background: var(--surface-3); border: 1px solid var(--border); padding: 1px 7px; border-radius: 5px; }
+.ref-slot textarea { width: 100%; min-height: 56px; resize: vertical; margin-bottom: 2px; }
+.ref-media { display: flex; justify-content: center; margin-bottom: 7px; }
+.ref-media img, .ref-media video { max-width: 100%; max-height: 124px; border-radius: var(--r-sm); background: #000; border: 1px solid var(--border); }
+.ref-media .ph { width: 100%; height: 82px; border: 1.5px dashed var(--border-2); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 12px; }
+.ref-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ref-actions .mini.ghost { color: var(--text-3); }
+.lib-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 9px; }
+.lib-item { border: 1px solid var(--border); background: var(--surface-3); border-radius: var(--r-sm); padding: 4px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.lib-item img { width: 100%; height: 42px; object-fit: cover; border-radius: 4px; background: #000; }
+.lib-item span { font-size: 9.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen .pf, .params .pf { margin-bottom: 9px; }
+.wh-hint { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }

@@ -31,7 +31,7 @@ export default function Toolbar() {
   const downloadJSON = (filename) => {
     const data = {
       version: 1,
-      nodes: nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data })),
+      nodes: nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data, style: n.style || undefined })),
       edges,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

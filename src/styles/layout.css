@@ -4,6 +4,20 @@
 
 .app { display: flex; flex-direction: column; height: 100vh; background: var(--bg); }
 
+/* —— 后端未连接警告条 —— */
+.backend-warn {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px;
+  background: linear-gradient(90deg, #5a1d1d, #3a1414);
+  color: #ffd9d9; font-size: 13px; font-weight: 500;
+  border-bottom: 1px solid #7a2a2a;
+}
+.backend-warn code {
+  background: rgba(0,0,0,.35); color: #ffe9a8; padding: 1px 7px; border-radius: 5px;
+  font-family: var(--font-mono); font-size: 12px;
+}
+
 /* —— 顶栏（玻璃感深墨渐变）—— */
 .topbar {
   height: 52px; flex: 0 0 52px;

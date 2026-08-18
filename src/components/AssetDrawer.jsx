@@ -9,7 +9,7 @@ export default function AssetDrawer() {
 
   return (
     <>
-      <div className={'drawer-backdrop' + (open ? ' show' : '')} onClick={close} />
+      <div className={'drawer-backdrop' + (open ? ' show' : '')} />
       <aside className={'asset-drawer' + (open ? ' open' : '')}>
         <div className="drawer-h">
           <span>资产库</span>

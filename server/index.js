@@ -2,8 +2,15 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { queuePrompt, getHistory, getQueue, getObjectInfo, uploadBuffer, fetchAssetBytes, clientId, COMFY_BASE } from './comfy.js';
+import { execFile } from 'child_process';
+import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { mkdir, writeFile, mkdtemp, rm, readFile } from 'fs/promises';
+import { queuePrompt, getHistory, getQueue, getObjectInfo, uploadBuffer, fetchAssetBytes, clientId, COMFY_BASE, viewUrl as comfyViewUrl } from './comfy.js';
 import { translate, TOOLS, MINIMAX, getTool } from './tools.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
@@ -11,6 +18,29 @@ app.use(express.json({ limit: '50mb' }));
 
 const upload = multer({ storage: multer.memoryStorage() });
 let MODELS = null;
+
+// 合成视频落地目录（由后端 /composed 静态服务，不依赖远程 ComfyUI 文件系统）
+const COMPOSED_DIR = path.join(__dirname, 'composed');
+await mkdir(COMPOSED_DIR, { recursive: true });
+app.use('/composed', express.static(COMPOSED_DIR));
+
+// 根据文件名后缀判断媒体类型（ComfyUI 历史里 mp4 也常放在 images 字段）
+function mediaByExt(filename = '') {
+  const ext = path.extname(filename).toLowerCase();
+  if (['.mp4', '.webm', '.mov', '.mkv', '.flv', '.avi'].includes(ext)) return 'video';
+  if (['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a'].includes(ext)) return 'audio';
+  return 'image';
+}
+
+// ffmpeg 封装：非 0 退出视为失败（抛出 stderr）
+function runFFmpeg(args) {
+  return new Promise((resolve, reject) => {
+    execFile('ffmpeg', args, { maxBuffer: 1024 * 1024 * 512 }, (err, stdout, stderr) => {
+      if (err) return reject(new Error((stderr || err.message || '').slice(-800)));
+      resolve(stdout);
+    });
+  });
+}
 
 async function loadModels() {
   if (MODELS) return MODELS;
@@ -140,6 +170,108 @@ app.get('/api/view', async (req, res) => {
     res.end(buf);
   } catch (e) {
     res.status(500).end();
+  }
+});
+
+// 远程图库：列举 ComfyUI 历史产出（图片/视频/音频），回流为可引用资产
+app.get('/api/remote-list', async (req, res) => {
+  try {
+    const max = Math.min(200, Math.max(1, parseInt(req.query.max) || 50));
+    const r = await fetch(`${COMFY_BASE}/history?max_items=${max}`);
+    if (!r.ok) return res.status(502).json({ error: 'ComfyUI history 失败: ' + r.status });
+    const hist = await r.json();
+    const seen = new Set();
+    const assets = [];
+    // history 是 { prompt_id: { outputs: { nodeId: { images|gifs|videos|audios: [...] } } } }
+    for (const rec of Object.values(hist || {})) {
+      const outputs = rec && rec.outputs;
+      if (!outputs) continue;
+      // 以该次任务最近一条消息的时间戳作为完成时间（用于按时间倒序）
+      const msgs = (rec.status && rec.status.messages) || [];
+      const ts = msgs.reduce((m, mm) => Math.max(m, (mm && mm[1] && mm[1].timestamp) || 0), 0);
+      for (const out of Object.values(outputs)) {
+        const buckets = ['images', 'gifs', 'videos', 'audios'];
+        for (const key of buckets) {
+          for (const f of out[key] || []) {
+            const filename = f.filename;
+            if (!filename) continue;
+            const subfolder = f.subfolder || '';
+            const type = f.type || 'output';
+            const dedup = `${filename}|${subfolder}|${type}`;
+            if (seen.has(dedup)) continue;
+            seen.add(dedup);
+            assets.push({
+              media: mediaByExt(filename),
+              filename,
+              subfolder,
+              type,
+              source: 'remote',
+              gallery: true,
+              ts,
+              url: comfyViewUrl(filename, subfolder, type),
+            });
+          }
+        }
+      }
+    }
+    // 默认按完成时间倒序（最新在前）
+    assets.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    res.json({ assets });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// 视频合成：把多条远程视频片段按序拼接（服务端 ffmpeg concat）
+app.post('/api/compose', express.json(), async (req, res) => {
+  try {
+    const { clips = [], fps = 24 } = req.body;
+    const valid = (clips || []).filter((c) => c && c.filename);
+    if (valid.length < 1) return res.status(400).json({ error: '至少需要一个视频片段' });
+
+    const tmp = await mkdtemp(path.join(os.tmpdir(), 'libtv-compose-'));
+    try {
+      // 1) 把每个片段字节拉到本地临时目录
+      const paths = [];
+      for (let i = 0; i < valid.length; i++) {
+        const c = valid[i];
+        const buf = await fetchAssetBytes(c.filename, c.subfolder || '', c.type || 'output');
+        const ext = path.extname(c.filename) || '.mp4';
+        const p = path.join(tmp, `clip_${i}${ext}`);
+        await writeFile(p, buf);
+        paths.push(p);
+      }
+      // 2) 构造 ffmpeg concat 列表（绝对路径，safe 0）
+      const listTxt = paths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n') + '\n';
+      const listPath = path.join(tmp, 'list.txt');
+      await writeFile(listPath, listTxt);
+
+      const outName = `compose_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp4`;
+      const outPath = path.join(COMPOSED_DIR, outName);
+
+      // 3) 逐级回退：copy -> 重编码(带音频) -> 重编码(去音频)
+      const attempts = [
+        ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outPath],
+        ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-r', String(fps | 0 || 24), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', outPath],
+        ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-r', String(fps | 0 || 24), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', outPath],
+      ];
+      let lastErr;
+      let ok = false;
+      for (const args of attempts) {
+        try { await runFFmpeg(args); ok = true; break; }
+        catch (e) { lastErr = e; }
+      }
+      if (!ok) throw lastErr || new Error('ffmpeg 拼接失败');
+
+      const stat = await import('fs/promises').then((m) => m.stat(outPath));
+      if (!stat.size) throw new Error('合成结果文件为空');
+
+      res.json({ media: 'video', filename: outName, url: `/composed/${outName}`, source: 'remote' });
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
   }
 });
 

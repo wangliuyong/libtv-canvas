@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: true, // 同时监听 IPv4 / IPv6 / 127.0.0.1，避免浏览器解析 localhost 到 IPv4 时拒绝连接
     proxy: {
       '/api': 'http://localhost:8787',
       '/view': 'http://localhost:8787',

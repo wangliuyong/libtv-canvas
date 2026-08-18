@@ -1,5 +1,5 @@
-import React, { useRef, Fragment } from 'react';
-import { Handle, Position } from 'reactflow';
+import React, { useRef, useState, Fragment } from 'react';
+import { Handle, Position, NodeResizer } from 'reactflow';
 import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
 import Icon from './icons.jsx';
@@ -8,24 +8,37 @@ const OUT_TYPE = (kind) => (kind === 'script' ? 'text' : kind);
 
 function AssetNode({ id, data, selected }) {
   const updateNodeData = useStore((s) => s.updateNodeData);
+  const addAsset = useStore((s) => s.addAsset);
+  const resetNodeSize = useStore((s) => s.resetNodeSize);
   const fileRef = useRef(null);
+  const [upErr, setUpErr] = useState('');
 
   const onUpload = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    const fd = new FormData();
-    fd.append('file', f);
-    const r = await fetch('/api/upload', { method: 'POST', body: fd });
-    const j = await r.json();
-    const qs = new URLSearchParams({ filename: j.name, type: j.type || 'input' });
-    if (j.subfolder) qs.set('subfolder', j.subfolder);
-    updateNodeData(id, { filename: j.name, subfolder: j.subfolder || '', type: j.type || 'input', assetUrl: `/api/view?${qs}`, label: f.name });
+    setUpErr('');
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const r = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (j.error) throw new Error(j.error);
+      const qs = new URLSearchParams({ filename: j.name, type: j.type || 'input' });
+      if (j.subfolder) qs.set('subfolder', j.subfolder);
+      updateNodeData(id, { filename: j.name, subfolder: j.subfolder || '', type: j.type || 'input', assetUrl: `/api/view?${qs}`, label: f.name });
+      addAsset({ filename: j.name, subfolder: j.subfolder || '', type: j.type || 'input', media: data.kind, url: `/api/view?${qs}`, label: f.name, source: 'local' });
+    } catch (err) {
+      setUpErr('上传失败：' + (err.message || err));
+    }
   };
 
   const outType = OUT_TYPE(data.kind);
   return (
-    <div className={'lnode asset ' + (selected ? 'sel' : '')}>
-      <div className="lnode-h"><Icon name={data.kind} />{data.label}</div>
+    <>
+      <NodeResizer isVisible={selected} minWidth={170} minHeight={60} />
+      <div className={'lnode asset ' + (selected ? 'sel' : '')}>
+      <div className="lnode-h"><Icon name={data.kind} /><span className="node-title">{data.label}</span>{selected && <button className="node-reset" title="重置尺寸" onMouseDown={(e) => e.stopPropagation()} onClick={() => resetNodeSize(id)}><Icon name="maximize" size={12} /></button>}</div>
       {data.kind === 'text' || data.kind === 'script' ? (
         <textarea className="txt" value={data.text || ''} placeholder={data.kind === 'script' ? '在此写剧本 / 分镜脚本…' : '提示词文本…'}
           onChange={(e) => updateNodeData(id, { text: e.target.value })} />
@@ -38,23 +51,28 @@ function AssetNode({ id, data, selected }) {
           ) : <div className="ph">未上传</div>}
           <button className="mini" onClick={() => fileRef.current.click()}>上传</button>
           <input ref={fileRef} type="file" hidden onChange={onUpload} />
+          {upErr && <div className="err" style={{ marginTop: 6 }}>{upErr}</div>}
         </div>
       )}
       <Handle type="source" position={Position.Right} id={outType} style={{ background: 'var(--node-asset)' }} />
-    </div>
+      </div>
+    </>
   );
 }
 
 function ToolNode({ id, data, selected }) {
   const runNode = useStore((s) => s.runNode);
+  const resetNodeSize = useStore((s) => s.resetNodeSize);
   const def = getTool(data.tool);
   if (!def) return <div className="lnode">未知工具</div>;
   const status = data.status || 'idle';
   const statusText = { idle: '', running: '生成中', success: '完成', error: '失败' }[status] || '';
 
   return (
-    <div className={'lnode tool ' + (selected ? 'sel' : '')}>
-      <div className="lnode-h"><Icon name={def.id} />{data.label}<span className="badge"><span className={'sdot ' + status} />{statusText}</span></div>
+    <>
+      <NodeResizer isVisible={selected} minWidth={200} minHeight={92} />
+      <div className={'lnode tool ' + (selected ? 'sel' : '')}>
+      <div className="lnode-h"><Icon name={def.id} /><span className="node-title">{data.label}</span><span className="badge"><span className={'sdot ' + status} />{statusText}</span>{selected && <button className="node-reset" title="重置尺寸" onMouseDown={(e) => e.stopPropagation()} onClick={() => resetNodeSize(id)}><Icon name="maximize" size={12} /></button>}</div>
       <div className="tn-desc">{def.desc}</div>
       <button className="run" disabled={status === 'running'} onClick={() => runNode(id)}>
         {status === 'running' ? '生成中…' : <><Icon name="play" size={14} /> 运行</>}
@@ -96,8 +114,20 @@ function ToolNode({ id, data, selected }) {
         </div>
       )}
       {data.error && <div className="err">{data.error}</div>}
-    </div>
+      </div>
+    </>
   );
 }
 
-export { AssetNode, ToolNode };
+function GroupNode({ data, selected }) {
+  return (
+    <>
+      <NodeResizer isVisible={selected} minWidth={180} minHeight={120} />
+      <div className="group-node">
+        <span className="group-label">{data.label || '分镜组'}</span>
+      </div>
+    </>
+  );
+}
+
+export { AssetNode, ToolNode, GroupNode };
