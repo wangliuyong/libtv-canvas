@@ -17,17 +17,11 @@
 .lnode:hover { box-shadow: var(--sh-lg); transform: translateY(-1px); }
 .lnode.sel { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-ring), var(--sh-lg); }
 
-.lnode-h { display: flex; align-items: center; gap: 9px; font-weight: 700; margin-bottom: 8px; }
+.lnode-h { display: flex; align-items: center; gap: 9px; font-weight: 700; margin-bottom: 8px; padding-left:6px}
 .node-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lnode-h > :first-child {
-  display: inline-grid; place-items: center;
-  width: 28px; height: 28px; border-radius: 9px; flex: 0 0 28px;
-  background: var(--accent-soft); color: var(--accent);
-}
 .lnode.asset { border-color: var(--node-asset); min-height: 64px; }
-.lnode.asset .lnode-h > :first-child { background: var(--accent-soft); color: var(--accent); }
 .lnode.tool { border-color: var(--node-tool); min-height: 96px; }
-.lnode.tool .lnode-h > :first-child { background: rgba(168,85,247,.16); color: var(--node-tool); }
+.lnode-h > :first-child { flex: 0 0 auto; color: var(--text); }
 
 /* 选中时的「重置尺寸」小按钮（贴合标题右侧） */
 .node-reset {
