@@ -92,7 +92,8 @@ export default function App() {
       )}
       <header className="topbar">
         <span className="logo"><span className="logo-mark"><Icon name="clapperboard" size={18} /></span> LibTV 式画布</span>
-        <span className="sub">无限画布 · 节点工作流 · 接入远程 ComfyUI</span>
+   
+        <StatusBar />
         <div className="top-actions">
           <button className="icon-btn" onClick={saveWf} title="保存工作流"><Icon name="save" size={16} /> 保存</button>
           <button className="icon-btn" onClick={exportProject} title="导出 JSON"><Icon name="download" size={16} /> 导出</button>
@@ -107,7 +108,7 @@ export default function App() {
       <div className="body">
         <div className="center">
           <Canvas />
-          <StatusBar />
+
         </div>
       </div>
       <AssetDrawer />
