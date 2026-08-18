@@ -110,6 +110,47 @@
 }
 .asset-card:hover .asset-hint { color: var(--accent); border-color: var(--accent); opacity: 1; }
 
+/* 资产缩略图：双击插入 + 预览按钮预览 */
+.asset-media { position: relative; cursor: default; }
+.asset-media.audio { cursor: default; }
+.asset-card img, .asset-card video {
+  width: 100%; height: 92px; object-fit: cover; border-radius: var(--r-sm);
+  background: #000; display: block; pointer-events: none;
+}
+.asset-card audio { width: 100%; margin-top: 2px; display: block; }
+.asset-prev-btn {
+  position: absolute; right: 6px; bottom: 6px; z-index: 2;
+  border: none; border-radius: 7px; padding: 5px; cursor: pointer;
+  background: rgba(8, 8, 12, .72); color: #fff; display: inline-flex;
+  align-items: center; justify-content: center; opacity: 0; transition: opacity var(--t-fast);
+}
+.asset-card:hover .asset-prev-btn { opacity: 1; }
+.asset-prev-btn:hover { background: var(--accent); }
+
+/* 资产预览弹层 */
+.asset-preview-overlay {
+  position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  background: rgba(4, 4, 8, .72); backdrop-filter: blur(2px); padding: 32px;
+}
+.asset-preview-modal {
+  width: min(880px, 94vw); max-height: 90vh; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--r-lg);
+  box-shadow: var(--sh-lg); overflow: hidden;
+}
+.apm-h {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto;
+}
+.apm-name { font-size: 13px; color: var(--text); font-family: var(--mono); word-break: break-all; }
+.apm-body {
+  flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center;
+  padding: 18px; background: #050509;
+}
+.apm-body img { max-width: 100%; max-height: 62vh; object-fit: contain; border-radius: var(--r-sm); }
+.apm-body video { max-width: 100%; max-height: 62vh; border-radius: var(--r-sm); background: #000; }
+.apm-audio { display: flex; flex-direction: column; align-items: center; gap: 16px; color: var(--text-2); }
+.apm-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); }
+
 /* 分页栏：固定在列表底部，不随列表滚动 */
 .pager {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
