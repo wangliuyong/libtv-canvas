@@ -100,7 +100,7 @@ export default function BottomToolbar() {
         <button className="bb-btn" onClick={() => rf.zoomOut()} title="缩小">
           <Icon name="zoomOut" size={18} />
         </button>
-        <button className="bb-btn" onClick={() => rf.fitView({ padding: 0.2 })} title="适配视图">
+        <button className="bb-btn" onClick={() => rf.fitView({ padding: 0.2, maxZoom: 1 })} title="适配视图">
           <Icon name="maximize" size={16} />
         </button>
         <span className="bb-sep" />

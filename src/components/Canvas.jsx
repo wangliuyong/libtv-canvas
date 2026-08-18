@@ -119,7 +119,7 @@ function Flow() {
     e.preventDefault();
     const selCount = rf.getNodes().filter((n) => n.selected).length;
     const items = [
-      { label: '适配视图', icon: 'maximize', onClick: () => rf.fitView({ padding: 0.2, duration: 300 }) },
+      { label: '适配视图', icon: 'maximize', onClick: () => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 300 }) },
       { label: '全选', icon: 'check', onClick: () => setNodes(get().nodes.map((n) => ({ ...n, selected: true }))) },
     ];
     if (selCount >= 2) items.push({ label: '合并分镜组', icon: 'group', onClick: groupSelected });
@@ -168,7 +168,7 @@ function Flow() {
         onPaneContextMenu={onPaneContextMenu}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        fitView
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.1}
         maxZoom={3}
         zoomOnDoubleClick={false}
