@@ -109,6 +109,8 @@ function Flow() {
       items.push({ label: '向前推演', icon: 'film', onClick: () => inferFrames(node.id, 'before', 1) });
     }
     if (node.type === 'group') items.push({ label: '解组分镜组', icon: 'ungroup', onClick: () => ungroup(node.id) });
+    const selCount = rf.getNodes().filter((n) => n.selected).length;
+    if (selCount >= 2) items.push({ label: '合并分镜组', icon: 'group', onClick: groupSelected });
     items.push({ label: '复制', icon: 'copy', onClick: () => duplicateNode(node.id) });
     items.push({ label: '编辑属性', icon: 'edit', onClick: () => openNodeModal(node.id) });
     items.push({ label: '删除', icon: 'trash', danger: true, onClick: () => deleteNode(node.id) });
@@ -172,7 +174,7 @@ function Flow() {
         minZoom={0.1}
         maxZoom={3}
         zoomOnDoubleClick={false}
-        panOnDrag={canvasLocked ? false : [1, 2]}
+        panOnDrag={canvasLocked ? false : [1]}
         zoomOnScroll={!canvasLocked}
         zoomOnPinch={!canvasLocked}
         selectionOnDrag={!canvasLocked}
