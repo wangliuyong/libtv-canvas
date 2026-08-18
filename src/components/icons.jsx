@@ -3,7 +3,7 @@ import {
   Users, Clapperboard, Images, Search, Palette, FastForward, Sun, ImagePlus,
   Globe, Save, Download, Upload, FolderOpen, PanelLeftClose, PanelLeftOpen, Play,
   Loader2, CheckCircle2, XCircle, X, Copy, LayoutGrid, Edit3, Trash2, Maximize, Group, Ungroup,
-  RefreshCw, ChevronLeft, ChevronRight,
+  RefreshCw, ChevronLeft, ChevronRight, Plus, ZoomIn, ZoomOut, Fullscreen, Lock, Unlock, HelpCircle,
 } from 'lucide-react';
 
 // 语义名 → Lucide 组件（覆盖基础资产 kind、AI 工具 id、通用 UI 动作）
@@ -22,6 +22,8 @@ const MAP = {
   copy: Copy, grid: LayoutGrid, film: Film, edit: Edit3, trash: Trash2,
   maximize: Maximize, group: Group, ungroup: Ungroup,
   refreshCw: RefreshCw, chevronLeft: ChevronLeft, chevronRight: ChevronRight,
+  plus: Plus, zoomIn: ZoomIn, zoomOut: ZoomOut, fullscreen: Fullscreen,
+  lock: Lock, unlock: Unlock, helpCircle: HelpCircle,
 };
 
 export default function Icon({ name, size = 16, className, style }) {

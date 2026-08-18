@@ -1,9 +1,10 @@
 import React, { useRef, useState, useMemo } from 'react';
-import ReactFlow, { Background, Controls, MiniMap, useReactFlow, ReactFlowProvider } from 'reactflow';
+import ReactFlow, { Background, useReactFlow, ReactFlowProvider } from 'reactflow';
 import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
 import { AssetNode, ToolNode, GroupNode } from './nodes.jsx';
 import ContextMenu from './ContextMenu.jsx';
+import BottomToolbar from './BottomToolbar.jsx';
 
 const nodeTypes = { asset: AssetNode, tool: ToolNode, group: GroupNode };
 
@@ -25,6 +26,7 @@ function Flow() {
   const openNodeModal = useStore((s) => s.openNodeModal);
   const runNode = useStore((s) => s.runNode);
   const selectedId = useStore((s) => s.selectedId);
+  const canvasLocked = useStore((s) => s.canvasLocked);
   const rf = useReactFlow();
   const wrapRef = useRef(null);
   const [menu, setMenu] = useState(null);
@@ -170,12 +172,15 @@ function Flow() {
         minZoom={0.1}
         maxZoom={3}
         zoomOnDoubleClick={false}
+        panOnDrag={!canvasLocked}
+        zoomOnScroll={!canvasLocked}
+        zoomOnPinch={!canvasLocked}
+        selectionOnDrag={!canvasLocked}
         defaultEdgeOptions={{ animated: true }}
       >
-        <Background gap={20} color="#1c2330" />
-        <Controls />
-        <MiniMap pannable zoomable />
+        <Background gap={20} color="#1a1a22" />
       </ReactFlow>
+      <BottomToolbar />
       <ContextMenu menu={menu} onClose={() => setMenu(null)} />
       {tip && <div className="ctx-tip">{tip}</div>}
     </div>

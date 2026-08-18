@@ -1,0 +1,80 @@
+/* =====================================================================
+   bottombar.css — 底部悬浮工具条 + 添加节点菜单（参考图风格）
+   ===================================================================== */
+
+.bottom-bar {
+  position: absolute;
+  left: 50%; bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  pointer-events: none;
+}
+.bottom-bar > * { pointer-events: auto; }
+
+/* 底部工具条胶囊 */
+.bottom-pill {
+  display: flex; align-items: center; gap: 3px;
+  background: rgba(19,19,26,.92);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 5px 6px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter: blur(10px);
+}
+.bb-btn {
+  display: inline-grid; place-items: center;
+  width: 34px; height: 34px; border-radius: var(--r-pill);
+  border: 1px solid transparent; background: transparent;
+  color: var(--text-2); cursor: pointer;
+  transition: all var(--t-fast);
+}
+.bb-btn:hover { background: var(--surface-2); color: var(--text); }
+.bb-btn.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.bb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
+
+/* 添加节点浮层菜单 */
+.add-node-menu {
+  position: absolute; bottom: 52px; left: 50%;
+  transform: translateX(-50%);
+  width: 230px; max-height: 64vh; overflow-y: auto;
+  background: rgba(22,22,30,.96);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 10px 0;
+  box-shadow: 0 20px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter: blur(14px);
+}
+.anm-title {
+  font-size: 12px; font-weight: 700; color: var(--text-2);
+  padding: 4px 14px 10px; letter-spacing: .02em;
+}
+.anm-sec { padding: 0 8px; }
+.anm-sub {
+  font-size: 10px; font-weight: 700; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 8px 6px 4px;
+}
+.anm-divider { height: 1px; background: var(--border); margin: 8px 12px; }
+.anm-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  border: 1px solid transparent; background: transparent;
+  border-radius: var(--r-md);
+  padding: 7px 8px; margin-bottom: 2px;
+  color: var(--text); font-size: 12.5px; font-weight: 500;
+  cursor: pointer; transition: all var(--t-fast);
+}
+.anm-item:hover { background: var(--surface-2); }
+.anm-item > :first-child {
+  display: inline-grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 7px; flex: 0 0 24px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.anm-item[data-kind="image"] > :first-child { background: rgba(248,113,113,.16); color: #fca5a5; }
+.anm-item[data-kind="video"] > :first-child { background: rgba(59,130,246,.16); color: #93c5fd; }
+.anm-item[data-kind="audio"] > :first-child { background: rgba(168,85,247,.16); color: #d8b4fe; }
+.anm-item[data-kind="script"] > :first-child { background: rgba(251,191,36,.16); color: #fcd34d; }
+.anm-item.tool > :first-child { background: linear-gradient(135deg, rgba(168,85,247,.22), rgba(124,140,255,.18)); color: #d8b4fe; }
+.anm-item.scaf { opacity: .6; }
+.anm-item.scaf:hover { opacity: .95; }

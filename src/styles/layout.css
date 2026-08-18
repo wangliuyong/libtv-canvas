@@ -43,16 +43,13 @@
   padding-left: 14px; margin-left: 2px; border-left: 1px solid var(--border-2);
 }
 
-/* 顶栏按钮：左侧抽屉折叠 + 右侧资产库图标 */
-.tb-toggle {
-  display: inline-grid; place-items: center;
-  width: 32px; height: 32px; flex: 0 0 32px;
-  border: 1px solid var(--border-2); background: var(--surface-2);
-  color: var(--text); border-radius: 9px; cursor: pointer; font-size: 14px;
-  transition: all var(--t-fast);
+/* 顶栏右侧操作区 */
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.proj-tip {
+  font-size: 11.5px; color: var(--success); font-weight: 600;
+  padding: 6px 10px; border-radius: var(--r-pill);
+  background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.32);
 }
-.tb-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.top-actions { margin-left: auto; display: flex; gap: 8px; }
 .icon-btn {
   display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text);
@@ -63,64 +60,6 @@
 
 /* —— 主体三栏 —— */
 .body { flex: 1; display: flex; min-height: 0; }
-
-/* ============================ 左侧节点列表抽屉 ============================ */
-.node-drawer {
-  width: 228px; flex: 0 0 228px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  overflow: hidden;
-  transition: width var(--t), flex-basis var(--t), border-color var(--t);
-}
-.node-drawer.collapsed { width: 0; flex-basis: 0; border-right-color: transparent; }
-
-.toolbar {
-  width: 228px; height: 100%;
-  background: transparent;
-  padding: 16px 13px; overflow-y: auto;
-}
-.tb-sec { margin-bottom: 20px; }
-.tb-title {
-  display: flex; align-items: center; gap: 7px;
-  font-weight: 700; font-size: 11.5px; color: var(--text-3);
-  margin-bottom: 10px; text-transform: uppercase; letter-spacing: .08em;
-}
-.tb-title::before {
-  content: ""; width: 7px; height: 7px; border-radius: 2px;
-  background: var(--grad-brand);
-}
-.tb-sub {
-  font-size: 11px; color: var(--text-3); font-weight: 600;
-  margin: 12px 0 7px; letter-spacing: .03em; text-transform: uppercase; opacity: .85;
-}
-
-/* 工具按钮 —— 卡片化 */
-.tb-btn {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; text-align: left;
-  border: 1px solid var(--border); background: var(--surface-2);
-  border-radius: var(--r-md);
-  padding: 9px 11px; margin-bottom: 7px;
-  cursor: grab; font-size: 13px; font-weight: 500; color: var(--text);
-  transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast), background var(--t-fast);
-}
-.tb-btn:hover { background: var(--surface-3); border-color: var(--border-2); transform: translateY(-1px); box-shadow: var(--sh-sm); }
-.tb-btn:active { cursor: grabbing; transform: translateY(0); }
-.tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tb-btn.tool:hover { border-color: var(--node-tool); box-shadow: 0 6px 18px rgba(168,85,247,.22); }
-.tb-btn.scaf { opacity: .65; border-style: dashed; }
-.tb-btn.scaf:hover { opacity: 1; }
-.tb-btn.file { display: flex; }
-
-.hint {
-  font-size: 11.5px; color: var(--text-3); line-height: 1.6;
-  margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 12px;
-}
-.saved-tip {
-  font-size: 11.5px; color: var(--success); line-height: 1.5;
-  margin-top: 9px; padding: 6px 9px; border-radius: var(--r-sm);
-  background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.32);
-}
 
 /* ============================ 中部画布 ============================ */
 .center { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }

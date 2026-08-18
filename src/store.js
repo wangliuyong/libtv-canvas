@@ -28,12 +28,12 @@ export const useStore = create((set, get) => ({
   jobs: [], // 运行中的任务
 
   // —— UI 状态（不影响画布逻辑）——
-  nodeDrawerCollapsed: false, // 左侧节点列表抽屉是否收起
   assetDrawerOpen: false,     // 资产库抽屉是否打开
   nodeModalId: null,          // 正在编辑属性的节点（双击打开）
+  canvasLocked: false,        // 画布是否锁定（禁止平移/缩放）
 
-  toggleNodeDrawer: () => set((s) => ({ nodeDrawerCollapsed: !s.nodeDrawerCollapsed })),
   toggleAssetDrawer: () => set((s) => ({ assetDrawerOpen: !s.assetDrawerOpen })),
+  toggleCanvasLock: () => set((s) => ({ canvasLocked: !s.canvasLocked })),
   openNodeModal: (id) => set({ nodeModalId: id }),
   closeNodeModal: () => set({ nodeModalId: null }),
 

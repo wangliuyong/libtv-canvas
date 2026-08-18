@@ -1,6 +1,6 @@
 # LibTV 式无限画布 · 接入 ComfyUI
 
-把 **LibTV** 的「无限画布 + 节点式工作流」范式，套用到一台真实 ComfyUI（抓取自 `http://175.155.64.171:60641`，RTX 4080 SUPER，1436 个节点：MiniMax-H3 / Wan / Kling / HunyuanVideo / LTX / SVD / 放大 / 补帧 / 调色 / Inpaint）。
+把 **LibTV** 的「无限画布 + 节点式工作流」范式，套用到一台真实 ComfyUI（RTX 4080 SUPER，1436 个节点：MiniMax-H3 / Wan / Kling / HunyuanVideo / LTX / SVD / 放大 / 补帧 / 调色 / Inpaint）。目标地址不写死在代码里，通过环境变量 `COMFY_URL` 或本地配置文件 `server/config.local.json` 指定（见下方「运行」）。
 
 前端是一块可无限缩放平移的画布，上面放 **文本 / 图片 / 视频 / 音频 / 脚本** 五类基础节点，以及若干 **AI 工具节点**（对应 LibTV 的「技能」）。节点间连线即数据流向，运行工具节点会把图翻译成 ComfyUI API 工作流并提交到远程执行，产出回流到画布与资产库。
 
@@ -35,7 +35,7 @@ npm run dev
 # 打开 http://localhost:5173
 ```
 
-环境变量：`COMFY_URL`（默认 `http://175.155.64.171:60641`）、`PORT`（默认 8787）。
+环境变量：`COMFY_URL`（目标 ComfyUI 地址，默认 `http://localhost:8188`；也可在 `server/config.local.json` 写入 `comfyUrl` 覆盖，该文件已被 gitignore，不会入库）、`PORT`（默认 8787）。
 
 ## 功能 → ComfyUI 映射（已实现）
 

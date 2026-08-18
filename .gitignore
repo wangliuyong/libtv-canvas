@@ -39,3 +39,6 @@ vite.config.ts.timestamp-*
 
 # 服务端合成视频落地目录（运行时生成）
 server/composed
+
+# 本地配置：含真实 ComfyUI 地址，禁止入库
+server/config.local.json
