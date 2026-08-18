@@ -178,7 +178,7 @@ function Flow() {
         selectionOnDrag={!canvasLocked}
         defaultEdgeOptions={{ animated: true }}
       >
-        <Background gap={20} color="#1a1a22" />
+        <Background variant="dots" gap={24} size={1.6} color="#33333f" />
       </ReactFlow>
       <BottomToolbar />
       <ContextMenu menu={menu} onClose={() => setMenu(null)} />
