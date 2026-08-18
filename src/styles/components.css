@@ -138,6 +138,29 @@
 .modal-close:hover { background: var(--surface-3); color: var(--text); }
 .modal-body { overflow-y: auto; }
 
+/* 配置弹窗（ComfyUI 远程地址） */
+.cfg-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.cfg-label { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.cfg-input {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border-2); border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text);
+  padding: 10px 12px; font-size: 13.5px; font-family: inherit;
+}
+.cfg-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.cfg-desc { font-size: 12px; color: var(--text-3); line-height: 1.6; margin: 0; }
+.cfg-err { font-size: 12px; color: var(--error); }
+.cfg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.btn {
+  border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text);
+  padding: 8px 16px; border-radius: var(--r-md); cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: all var(--t-fast);
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); color: #fff; }
+.btn:disabled { opacity: .6; cursor: default; }
+
 /* ============================ 右键上下文菜单 ============================ */
 .ctx-menu {
   position: fixed; z-index: 200; min-width: 178px;

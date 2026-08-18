@@ -3,6 +3,7 @@ import Canvas from './components/Canvas.jsx';
 import NodeModal from './components/NodeModal.jsx';
 import AssetDrawer from './components/AssetDrawer.jsx';
 import StatusBar from './components/StatusBar.jsx';
+import ConfigModal from './components/ConfigModal.jsx';
 import Icon from './components/icons.jsx';
 import { useStore } from './store.js';
 
@@ -17,6 +18,7 @@ export default function App() {
   const setEdges = useStore((s) => s.setEdges);
   const [backendDown, setBackendDown] = useState(false);
   const [projTip, setProjTip] = useState('');
+  const [configOpen, setConfigOpen] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => { fetchModels(); }, [fetchModels]);
@@ -92,7 +94,6 @@ export default function App() {
       )}
       <header className="topbar">
         <span className="logo"><span className="logo-mark"><Icon name="clapperboard" size={18} /></span> LibTV 式画布</span>
-   
         <StatusBar />
         <div className="top-actions">
           <button className="icon-btn" onClick={saveWf} title="保存工作流"><Icon name="save" size={16} /> 保存</button>
@@ -100,6 +101,7 @@ export default function App() {
           <button className="icon-btn" onClick={() => fileRef.current?.click()} title="导入 JSON"><Icon name="upload" size={16} /> 导入</button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={importProject} />
           {projTip && <span className="proj-tip">{projTip}</span>}
+          <button className="icon-btn" onClick={() => setConfigOpen(true)} title="ComfyUI 配置"><Icon name="settings" size={16} /> 配置</button>
           <button className="icon-btn" onClick={toggleAssetDrawer} title="资产库">
             <Icon name="folderOpen" size={16} /> 资产{assetCount ? ` (${assetCount})` : ''}
           </button>
@@ -108,11 +110,11 @@ export default function App() {
       <div className="body">
         <div className="center">
           <Canvas />
-
         </div>
       </div>
       <AssetDrawer />
       <NodeModal />
+      <ConfigModal open={configOpen} onClose={() => setConfigOpen(false)} />
     </div>
   );
 }

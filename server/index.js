@@ -7,7 +7,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { mkdir, writeFile, mkdtemp, rm, readFile } from 'fs/promises';
-import { queuePrompt, getHistory, getQueue, getObjectInfo, uploadBuffer, fetchAssetBytes, clientId, COMFY_BASE, viewUrl as comfyViewUrl } from './comfy.js';
+import { queuePrompt, getHistory, getQueue, getObjectInfo, uploadBuffer, fetchAssetBytes, clientId, viewUrl as comfyViewUrl, getComfyUrl, setComfyUrl } from './comfy.js';
 import { translate, TOOLS, MINIMAX, getTool } from './tools.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -155,13 +155,28 @@ app.get('/api/queue', async (req, res) => {
   try { res.json(await getQueue()); } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
+// ComfyUI 远程地址配置：可运行时修改并持久化到 config.local.json
+app.get('/api/config', (req, res) => {
+  res.json({ comfyUrl: getComfyUrl() });
+});
+
+app.post('/api/config', express.json(), (req, res) => {
+  try {
+    const { comfyUrl } = (req.body || {});
+    const url = setComfyUrl(comfyUrl);
+    res.json({ comfyUrl: url });
+  } catch (e) {
+    res.status(400).json({ error: String(e.message || e) });
+  }
+});
+
 // /view 代理（缩略图/预览）
 app.get('/api/view', async (req, res) => {
   try {
     const { filename, subfolder = '', type = 'output' } = req.query;
     const qs = new URLSearchParams({ filename, type });
     if (subfolder) qs.set('subfolder', subfolder);
-    const r = await fetch(`${COMFY_BASE}/view?${qs}`);
+    const r = await fetch(`${getComfyUrl()}/view?${qs}`);
     if (!r.ok) return res.status(404).end();
     const buf = Buffer.from(await r.arrayBuffer());
     const ct = r.headers.get('content-type') || 'application/octet-stream';
@@ -177,7 +192,7 @@ app.get('/api/view', async (req, res) => {
 app.get('/api/remote-list', async (req, res) => {
   try {
     const max = Math.min(200, Math.max(1, parseInt(req.query.max) || 50));
-    const r = await fetch(`${COMFY_BASE}/history?max_items=${max}`);
+    const r = await fetch(`${getComfyUrl()}/history?max_items=${max}`);
     if (!r.ok) return res.status(502).json({ error: 'ComfyUI history 失败: ' + r.status });
     const hist = await r.json();
     const seen = new Set();
@@ -276,4 +291,4 @@ app.post('/api/compose', express.json(), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8787;
-app.listen(PORT, () => console.log(`[libtv-canvas] backend on http://localhost:${PORT}  -> ComfyUI ${COMFY_BASE}`));
+app.listen(PORT, () => console.log(`[libtv-canvas] backend on http://localhost:${PORT}  -> ComfyUI ${getComfyUrl()}`));
