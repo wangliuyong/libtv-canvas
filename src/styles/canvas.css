@@ -1,0 +1,50 @@
+/* =====================================================================
+   canvas.css — React Flow 视觉统一（暗色工作台）
+   ===================================================================== */
+
+.react-flow__background { background: var(--canvas-bg); }
+.react-flow__pane { cursor: grab; }
+.react-flow__pane.dragging { cursor: grabbing; }
+
+/* 连线 */
+.react-flow__edge-path { stroke: var(--accent); stroke-width: 2px; opacity: .85; }
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path { stroke: var(--accent-2); stroke-width: 2.5px; }
+.react-flow__edge.animated .react-flow__edge-path { stroke-dasharray: 6 4; }
+.react-flow__edge-text { fill: var(--text-2); font-size: 11px; }
+.react-flow__connectionline .react-flow__edge-path { stroke: var(--accent-2); stroke-width: 2px; }
+
+/* 把手：语义色 + 白描边 + 阴影 */
+.react-flow__handle {
+  width: 11px; height: 11px; border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), var(--sh-sm);
+}
+.react-flow__handle:hover { filter: brightness(1.18) drop-shadow(0 0 4px var(--accent-2)); cursor: crosshair; }
+
+/* 控件浮层 */
+.react-flow__controls {
+  border-radius: var(--r-md); overflow: hidden; box-shadow: var(--sh-md);
+  border: 1px solid var(--border); background: var(--surface);
+}
+.react-flow__controls-button {
+  background: var(--surface); border-bottom: 1px solid var(--border); width: 30px; height: 30px; color: var(--text-2);
+}
+.react-flow__controls-button:hover { background: var(--surface-3); color: var(--accent); }
+.react-flow__controls-button svg { fill: currentColor; }
+
+/* 小地图 */
+.react-flow__minimap {
+  border-radius: var(--r-md); overflow: hidden;
+  border: 1px solid var(--border); box-shadow: var(--sh-md); background: var(--surface);
+}
+.react-flow__minimap-mask { fill: rgba(11,14,20,.6); }
+
+/* attribution 弱化 */
+.react-flow__attribution {
+  background: rgba(21,27,36,.7); font-size: 9px; color: var(--text-3);
+  border-radius: var(--r-xs) 0 0 0; padding: 1px 4px;
+}
+
+/* 节点默认选中描边去掉，由 .lnode.sel 控制 */
+.react-flow__node.selected { box-shadow: none; }
+.react-flow__node { font-family: var(--font); }

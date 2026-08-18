@@ -1,0 +1,27 @@
+{
+  "name": "libtv-canvas",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "LibTV 式无限画布 AI 视频创作工具，后端接入远程 ComfyUI",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server/index.js",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "lucide-react": "^1.31.0",
+    "multer": "^1.4.5-lts.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "reactflow": "^11.11.4",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8"
+  }
+}

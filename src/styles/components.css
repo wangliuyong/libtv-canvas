@@ -1,0 +1,132 @@
+/* =====================================================================
+   components.css — 节点卡片 / 把手 / 通用按钮（run/mini/del）/ 输入行
+   ===================================================================== */
+
+/* —— 节点卡片 —— */
+.lnode {
+  position: relative;
+  background: var(--surface);
+  border: 1.5px solid var(--border-2);
+  border-radius: var(--r-lg);
+  padding: 11px 13px; min-width: 202px;
+  box-shadow: var(--sh-md);
+  font-size: 13px;
+  transition: box-shadow var(--t), transform var(--t-fast), border-color var(--t-fast);
+}
+.lnode:hover { box-shadow: var(--sh-lg); transform: translateY(-1px); }
+.lnode.sel { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-ring), var(--sh-lg); }
+
+.lnode-h { display: flex; align-items: center; gap: 9px; font-weight: 700; margin-bottom: 8px; }
+.lnode-h > :first-child {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 9px; flex: 0 0 28px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.lnode.asset { border-color: var(--node-asset); }
+.lnode.asset .lnode-h > :first-child { background: var(--accent-soft); color: var(--accent); }
+.lnode.tool { border-color: var(--node-tool); }
+.lnode.tool .lnode-h > :first-child { background: rgba(168,85,247,.16); color: var(--node-tool); }
+.lnode-h .badge {
+  margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--border);
+  padding: 2px 9px; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.sdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; background: var(--text-3); }
+.sdot.idle { background: var(--text-3); }
+.sdot.running { background: var(--warning); animation: pulse-dot 1s infinite; }
+.sdot.success { background: var(--success); }
+.sdot.error { background: var(--error); }
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* 文本输入 */
+.txt {
+  width: 100%; min-height: 66px;
+  border: 1px solid var(--border-2); border-radius: var(--r-sm);
+  padding: 8px; font-size: 12.5px; resize: vertical; font-family: inherit; color: var(--text);
+  background: var(--surface-2);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.txt:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); background: var(--surface-3); }
+
+/* 媒体区 */
+.media { display: flex; flex-direction: column; gap: 7px; align-items: center; }
+.media img, .media video {
+  max-width: 184px; max-height: 134px; border-radius: var(--r-sm);
+  background: #000; box-shadow: var(--sh-sm); border: 1px solid var(--border);
+}
+.media .ph {
+  width: 184px; height: 98px; background: var(--surface-2);
+  border: 1.5px dashed var(--border-2); border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 12px;
+}
+
+/* 小按钮 */
+.mini {
+  font-size: 11.5px; font-weight: 600; padding: 5px 12px;
+  border: 1px solid var(--border-2); background: var(--surface-2);
+  border-radius: var(--r-pill); cursor: pointer; color: var(--text-2);
+  transition: all var(--t-fast);
+}
+.mini:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.tn-desc { font-size: 11.5px; color: var(--text-2); margin-bottom: 10px; line-height: 1.5; }
+
+/* 运行按钮 —— 渐变主按钮 */
+.run {
+  width: 100%; border: none;
+  background: var(--grad-brand); color: #fff;
+  border-radius: var(--r-sm); padding: 9px; cursor: pointer;
+  font-size: 13px; font-weight: 600; letter-spacing: .2px;
+  box-shadow: var(--sh-accent);
+  transition: transform var(--t-fast), box-shadow var(--t-fast), filter var(--t-fast);
+}
+.run:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(124,140,255,.45); filter: brightness(1.05); }
+.run:active:not(:disabled) { transform: translateY(0); }
+.run:disabled { background: var(--border-2); box-shadow: none; cursor: default; color: var(--text-3); }
+.run.big { margin-top: 12px; padding: 11px; font-size: 13.5px; }
+
+/* 输入标签：贴在卡片左边框内侧，垂直位置与对应把手对齐 */
+.io-label {
+  position: absolute; left: 14px;
+  transform: translateY(-50%);
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+  background: var(--surface); padding: 1px 7px;
+  border: 1px solid var(--border); border-radius: 5px;
+  box-shadow: var(--sh-sm); pointer-events: auto; white-space: nowrap;
+}
+
+/* 产出缩略 */
+.result { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+.result img, .result video {
+  width: 58px; height: 42px; object-fit: cover; border-radius: 6px; background: #000;
+  border: 1px solid var(--border); box-shadow: var(--sh-sm);
+}
+.err { color: var(--error); font-size: 11.5px; margin-top: 7px; line-height: 1.5; }
+
+/* ============================ 属性维护模态 ============================ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(5,8,12,.6); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  animation: overlay-fade var(--t-fast);
+}
+.modal {
+  width: 440px; max-width: calc(100vw - 32px); max-height: 86vh;
+  background: var(--surface); border: 1px solid var(--border-2);
+  border-radius: var(--r-xl); box-shadow: var(--sh-lg);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: modal-pop var(--t);
+}
+.modal-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  font-weight: 700; font-size: 15px; color: var(--text);
+}
+.modal-close {
+  border: none; background: var(--surface-2); color: var(--text-2);
+  width: 30px; height: 30px; border-radius: 9px; cursor: pointer; font-size: 14px;
+  transition: all var(--t-fast);
+}
+.modal-close:hover { background: var(--surface-3); color: var(--text); }
+.modal-body { overflow-y: auto; }

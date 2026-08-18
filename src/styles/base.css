@@ -1,0 +1,37 @@
+/* =====================================================================
+   base.css — 重置 / 排版 / 滚动条 / 焦点 / 动效偏好
+   ===================================================================== */
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;            /* 画布自行滚动，避免整页滚动条 */
+}
+::selection { background: var(--accent-ring); color: var(--text); }
+
+/* 细滚动条（暗色） */
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-2); border-radius: 999px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* 焦点可见性（无障碍） */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* 减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* 模态 / 抽屉动画 */
+@keyframes overlay-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }

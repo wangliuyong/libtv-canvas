@@ -1,0 +1,97 @@
+/* =====================================================================
+   panels.css — 属性面板（Inspector）/ 资产库（AssetPanel）
+   ===================================================================== */
+
+/* —— 属性面板 —— */
+.insp { padding: 18px 16px; }
+.insp-h { font-weight: 700; font-size: 16px; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
+.insp .desc { font-size: 12.5px; color: var(--text-2); margin-bottom: 14px; line-height: 1.6; }
+
+.pf { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; font-size: 12px; color: var(--text-2); }
+.pf span { font-weight: 600; color: var(--text); font-size: 12.5px; }
+.pf input, .pf select, .pf textarea {
+  border: 1px solid var(--border-2); border-radius: var(--r-sm);
+  padding: 9px 10px; font-size: 13px; font-family: inherit; color: var(--text);
+  background: var(--surface-2);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+.pf input:focus, .pf select:focus, .pf textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); background: var(--surface-3);
+}
+.pf select {
+  appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa7b8' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 11px center; padding-right: 30px;
+}
+.pf.col textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
+
+.prev { margin: 10px 0; }
+.prev img, .prev video { max-width: 100%; border-radius: var(--r-md); background: #000; box-shadow: var(--sh-md); border: 1px solid var(--border); }
+.fname { font-size: 11px; color: var(--text-3); word-break: break-all; margin-bottom: 10px; font-family: var(--mono); }
+
+.del {
+  width: 100%; border: 1px solid rgba(248,113,113,.35); color: var(--error); background: transparent;
+  border-radius: var(--r-sm); padding: 9px; cursor: pointer; margin-top: 12px; font-weight: 600; font-size: 12.5px;
+  transition: all var(--t-fast);
+}
+.del:hover { background: rgba(248,113,113,.12); border-color: var(--error); }
+
+.result-list { margin-top: 14px; }
+.rl-h { font-size: 12px; color: var(--text-3); font-weight: 600; margin-bottom: 8px; letter-spacing: .02em; }
+.rl-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  margin-bottom: 7px; font-size: 12.5px; color: var(--accent); text-decoration: none;
+  background: var(--surface-2);
+  transition: all var(--t-fast);
+}
+.rl-item:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateX(2px); }
+.rl-item img { width: 46px; height: 34px; object-fit: cover; border-radius: 5px; background: #000; }
+
+/* —— 资产库 —— */
+.assets { padding: 14px; }
+.assets-h { font-weight: 700; font-size: 13.5px; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.assets-h::before { content: ""; width: 8px; height: 8px; border-radius: 3px; background: var(--grad-brand); }
+.assets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.asset-card {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 6px; background: var(--surface-2); box-shadow: var(--sh-sm);
+  transition: all var(--t-fast);
+}
+.asset-card:hover { border-color: var(--accent); box-shadow: var(--sh-md); transform: translateY(-2px); }
+.asset-card img, .asset-card video {
+  width: 100%; height: 92px; object-fit: cover; border-radius: var(--r-sm);
+  background: #000; cursor: pointer; display: block;
+}
+.asset-card audio { width: 100%; margin-top: 4px; }
+.asset-name { font-size: 10.5px; color: var(--text-3); word-break: break-all; margin: 6px 2px 7px; font-family: var(--mono); }
+
+/* ============================ 资产库抽屉 ============================ */
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(5,8,12,.45);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--t);
+}
+.drawer-backdrop.show { opacity: 1; pointer-events: auto; }
+.asset-drawer {
+  position: fixed; top: 0; right: 0; height: 100%; z-index: 95;
+  width: 340px; max-width: 88vw;
+  background: var(--surface); border-left: 1px solid var(--border-2);
+  box-shadow: var(--sh-lg);
+  transform: translateX(100%); transition: transform var(--t);
+  display: flex; flex-direction: column;
+}
+.asset-drawer.open { transform: none; }
+.drawer-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  font-weight: 700; font-size: 15px; color: var(--text); flex: 0 0 auto;
+}
+.drawer-close {
+  border: none; background: var(--surface-2); color: var(--text-2);
+  width: 30px; height: 30px; border-radius: 9px; cursor: pointer; font-size: 14px;
+  transition: all var(--t-fast);
+}
+.drawer-close:hover { background: var(--surface-3); color: var(--text); }
+.drawer-body { flex: 1; overflow-y: auto; }
