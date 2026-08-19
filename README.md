@@ -1,4 +1,4 @@
-# LibTV 式无限画布 · 接入 ComfyUI
+# 灵犀无限画布 · 接入 ComfyUI
 
 把 **LibTV** 的「无限画布 + 节点式工作流」范式，套用到一台真实 ComfyUI（RTX 4080 SUPER，1436 个节点：MiniMax-H3 / Wan / Kling / HunyuanVideo / LTX / SVD / 放大 / 补帧 / 调色 / Inpaint）。目标地址不写死在代码里，通过环境变量 `COMFY_URL` 或本地配置文件 `server/config.local.json` 指定（见下方「运行」）。
 

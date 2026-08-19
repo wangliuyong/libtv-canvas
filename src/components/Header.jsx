@@ -29,7 +29,7 @@ export default function Header() {
     <header className="topbar">
       <span className="logo">
         <span className="logo-mark"><Icon name="clapperboard" size={18} /></span>
-        LibTV 式画布
+        灵犀画布
       </span>
       <StatusBar />
       <div className="top-actions">
