@@ -43,14 +43,18 @@
 }
 .home-tab:hover { color: var(--text); }
 .home-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* 资产 tab：首页整页不滚，资产列表自身滚动（滚动区域仅限资产内容） */
+.home.no-scroll { overflow: hidden; padding-bottom: 24px; }
+.home-inner.fill { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .home-assets {
+  flex: 1; min-height: 0;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-md); padding: 16px 18px;
-  display: flex; flex-direction: column; min-height: 420px;
+  display: flex; flex-direction: column;
 }
 .home-assets .assets { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.home-assets .assets-scroll { max-height: 560px; }
-.home-assets .assets-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+.home-assets .assets-scroll { flex: 1 1 auto; min-height: 0; }
 
 /* —— 卡片网格 —— */
 .canvas-grid {

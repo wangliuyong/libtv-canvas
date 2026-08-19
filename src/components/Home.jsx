@@ -46,8 +46,8 @@ export default function Home() {
   };
 
   return (
-    <div className="home">
-      <div className="home-inner">
+    <div className={'home' + (tab === 'assets' ? ' no-scroll' : '')}>
+      <div className={'home-inner' + (tab === 'assets' ? ' fill' : '')}>
         <div className="home-head">
           <div>
             <h1>我的工作台</h1>
@@ -120,7 +120,7 @@ export default function Home() {
         </div>
         ) : (
           <div className="home-assets">
-            <AssetPanel insertable={false} />
+            <AssetPanel insertable={false} virtual />
           </div>
         )}
       </div>
