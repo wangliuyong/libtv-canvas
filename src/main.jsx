@@ -9,5 +9,6 @@ import './styles/components.css';
 import './styles/panels.css';
 import './styles/canvas.css';
 import './styles/bottombar.css';
+import './styles/home.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

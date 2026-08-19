@@ -248,6 +248,22 @@ export const TOOLS = [
     outputs: ['video'],
     params: [{ key: 'fps', label: '帧率', type: 'number', default: 24 }],
   },
+  {
+    id: 'voiceswap', name: '视频换音色', cat: 'video', icon: '🎙️',
+    desc: '把视频里的人声换成另一个音色（CosyVoice3 声音转换），可选 Kling 对口型输出新视频',
+    inputs: [
+      { key: 'video', label: '原视频', type: 'video', required: true },
+      { key: 'ref_audio', label: '目标音色参考', type: 'audio', required: true },
+    ],
+    outputs: ['video'],
+    params: [
+      { key: 'speed', label: '语速', type: 'number', default: 1.0 },
+      { key: 'voice_language', label: '口型语言', type: 'select', options: ['zh', 'en'], default: 'zh' },
+      { key: 'lipsync', label: '对口型出视频', type: 'select', options: ['true', 'false'], default: 'true' },
+      { key: 'model_version', label: 'CosyVoice 模型', type: 'select', options: ['Fun-CosyVoice3-0.5B', 'CosyVoice2-0.5B', 'CosyVoice-300M'], default: 'Fun-CosyVoice3-0.5B' },
+      { key: 'prefix', label: '文件名前缀', type: 'text', default: 'voiceswap' },
+    ],
+  },
 ];
 
 export function getTool(id) {
@@ -396,6 +412,32 @@ export function translate(toolId, params = {}, inputs = {}) {
     case 'ref2i': {
       const r = i2iChain(10, { ...P, image: inputs.image, denoise: P.denoise, steps: P.steps || 30, cfg: P.cfg || 7, seed: P.seed || 0 }, prompt, neg, P.prefix || 'ref2i');
       return { prompt: r.nodes, saveNodes: [{ id: r.saveId, media: 'image' }] };
+    }
+    case 'voiceswap': {
+      // inputs 由后端 prepareVoiceSwap 预处理后传入（均为 ComfyUI input 目录下的文件名）：
+      //   video        原视频（LoadVideo 只读 input 目录）
+      //   ref_audio    目标音色参考音频
+      //   source_speech 从原视频抽出的干净人声
+      const n = {};
+      n['1'] = { class_type: 'FL_CosyVoice3_ModelLoader', inputs: { model_version: P.model_version || 'Fun-CosyVoice3-0.5B', download_source: 'HuggingFace', device: 'auto' } };
+      n['2'] = { class_type: 'LoadAudio', inputs: { audio: inputs.source_speech } };
+      n['3'] = { class_type: 'LoadAudio', inputs: { audio: inputs.ref_audio } };
+      n['4'] = {
+        class_type: 'FL_CosyVoice3_VoiceConversion',
+        inputs: { model: ['1', 0], source_audio: ['2', 0], target_audio: ['3', 0], speed: Number(P.speed) || 1.0 },
+      };
+      n['5'] = { class_type: 'SaveAudio', inputs: { audio: ['4', 0], filename_prefix: P.prefix || 'voiceswap' } };
+      n['6'] = { class_type: 'LoadVideo', inputs: { file: inputs.video } };
+      const lipsync = P.lipsync !== 'false';
+      let saveNodes;
+      if (lipsync) {
+        n['7'] = { class_type: 'KlingLipSyncAudioToVideoNode', inputs: { video: ['6', 0], audio: ['4', 0], voice_language: P.voice_language || 'zh' } };
+        saveNodes = [{ id: '7', media: 'video' }];
+      } else {
+        // 无云端对口型 key 时，仅输出换音色后的音频，用户可本地 ffmpeg 贴回视频
+        saveNodes = [{ id: '5', media: 'audio' }];
+      }
+      return { prompt: n, saveNodes };
     }
     case 't2i':
     default: {

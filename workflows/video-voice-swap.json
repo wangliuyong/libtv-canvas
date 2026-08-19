@@ -1,0 +1,52 @@
+{
+  "1": {
+    "class_type": "FL_CosyVoice3_ModelLoader",
+    "inputs": {
+      "model_version": "Fun-CosyVoice3-0.5B",
+      "download_source": "HuggingFace",
+      "device": "auto"
+    }
+  },
+  "2": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "source_speech.wav"
+    }
+  },
+  "3": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "target_voice.wav"
+    }
+  },
+  "4": {
+    "class_type": "FL_CosyVoice3_VoiceConversion",
+    "inputs": {
+      "model": ["1", 0],
+      "source_audio": ["2", 0],
+      "target_audio": ["3", 0],
+      "speed": 1.0
+    }
+  },
+  "5": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": ["4", 0],
+      "filename_prefix": "vc_converted"
+    }
+  },
+  "6": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "input_video.mp4"
+    }
+  },
+  "7": {
+    "class_type": "KlingLipSyncAudioToVideoNode",
+    "inputs": {
+      "video": ["6", 0],
+      "audio": ["4", 0],
+      "voice_language": "zh"
+    }
+  }
+}

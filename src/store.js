@@ -6,6 +6,21 @@ let _id = 1;
 const uid = (p = 'n') => `${p}_${Date.now().toString(36)}_${_id++}`;
 const clone = (arr) => JSON.parse(JSON.stringify(arr));
 
+// —— 多画布持久化（localStorage）——
+// 结构：{ [id]: { id, name, createdAt, updatedAt, nodeCount, nodes, edges } }
+const LS_KEY = 'libtv_canvases_v1';
+function _readCanvases() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; }
+}
+function _writeCanvases(map) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch {}
+}
+function _metaList(map) {
+  return Object.values(map)
+    .map(({ id, name, createdAt, updatedAt, nodeCount }) => ({ id, name, createdAt, updatedAt, nodeCount: nodeCount || 0 }))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 // 节点默认尺寸：宽度固定（舒适初始宽度），高度由内容自适应；
 // 作为 NodeResizer 的基准，缩放可双向生效。重置尺寸时恢复到这里。
 const NODE_DEFAULT_STYLE = {
@@ -34,6 +49,114 @@ export const useStore = create((set, get) => ({
   assetDrawerOpen: false,     // 资产库抽屉是否打开
   nodeModalId: null,          // 正在编辑属性的节点（双击打开）
   canvasLocked: false,        // 画布是否锁定（禁止平移/缩放）
+  configOpen: false,          // ComfyUI 配置弹窗
+  projTip: '',                // 顶部操作提示（toast）
+
+  // —— 多画布 ——
+  canvases: [],               // 画布元数据列表（不含 nodes/edges 内容）
+  currentCanvasId: null,      // null 表示停留在主页；否则进入对应画布
+
+  setConfigOpen: (v) => set({ configOpen: v }),
+  setProjTip: (msg) => {
+    set({ projTip: msg });
+    if (msg) setTimeout(() => { if (get().projTip === msg) set({ projTip: '' }); }, 2500);
+  },
+
+  // 画布读写（localStorage）
+  loadCanvases: () => set({ canvases: _metaList(_readCanvases()) }),
+
+  createCanvas: (name) => {
+    const id = uid('cv');
+    const now = Date.now();
+    const map = _readCanvases();
+    map[id] = { id, name: (name || '').trim() || '未命名画布', createdAt: now, updatedAt: now, nodeCount: 0, nodes: [], edges: [] };
+    _writeCanvases(map);
+    set({ canvases: _metaList(map), currentCanvasId: id, nodes: [], edges: [], selectedId: null, past: [], future: [] });
+    return id;
+  },
+
+  openCanvas: (id) => {
+    const c = _readCanvases()[id];
+    if (!c) return;
+    set({ currentCanvasId: id, nodes: c.nodes || [], edges: c.edges || [], selectedId: null, past: [], future: [] });
+  },
+
+  deleteCanvas: (id) => {
+    const map = _readCanvases();
+    delete map[id];
+    _writeCanvases(map);
+    const isCurrent = get().currentCanvasId === id;
+    set({
+      canvases: _metaList(map),
+      ...(isCurrent ? { currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] } : {}),
+    });
+  },
+
+  renameCanvas: (id, name) => {
+    const map = _readCanvases();
+    if (!map[id]) return;
+    map[id].name = (name || '').trim() || '未命名画布';
+    map[id].updatedAt = Date.now();
+    _writeCanvases(map);
+    set({ canvases: _metaList(map) });
+  },
+
+  // 把当前画布内容落盘；内容无变化时跳过（避免打开即刷新时间）
+  saveCurrentCanvas: () => {
+    const id = get().currentCanvasId;
+    if (!id) return;
+    const map = _readCanvases();
+    if (!map[id]) return;
+    const nodes = get().nodes;
+    const edges = get().edges;
+    const prev = JSON.stringify({ n: map[id].nodes || [], e: map[id].edges || [] });
+    const next = JSON.stringify({ n: nodes, e: edges });
+    if (prev === next) return;
+    map[id].nodes = nodes;
+    map[id].edges = edges;
+    map[id].nodeCount = nodes.length;
+    map[id].updatedAt = Date.now();
+    _writeCanvases(map);
+    set({ canvases: _metaList(map) });
+  },
+
+  goHome: () => set({ currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] }),
+
+  // 工作流下载 / 导入（保存·导出·导入共用）
+  downloadJSON: (filename) => {
+    const { nodes, edges } = get();
+    const data = {
+      version: 1,
+      nodes: nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data, style: n.style || undefined })),
+      edges,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  },
+  saveWf: () => { get().downloadJSON('libtv-workflow.json'); get().setProjTip('已保存 · libtv-workflow.json'); },
+  exportProject: () => {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    get().downloadJSON(`libtv-project-${stamp}.json`);
+    get().setProjTip('已导出项目 JSON');
+  },
+  importJSON: (file) => new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('未选择文件'));
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        set({ nodes: data.nodes || [], edges: data.edges || [] });
+        get().saveCurrentCanvas();
+        get().setProjTip('已导入工作流');
+        resolve();
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('读取失败'));
+    reader.readAsText(file);
+  }),
 
   toggleAssetDrawer: () => set((s) => ({ assetDrawerOpen: !s.assetDrawerOpen })),
   toggleCanvasLock: () => set((s) => ({ canvasLocked: !s.canvasLocked })),
@@ -325,6 +448,40 @@ export const useStore = create((set, get) => ({
       }
     };
     setTimeout(poll, 1500);
+  },
+
+  // 提交任意 ComfyUI API 格式工作流，复用同一套轮询/产出逻辑（前端可直接触发实验性工作流）
+  // 返回 { promptId, assets }；出错抛错。产物同时推入全局资产库。
+  runWorkflow: async (prompt, { validate = false, client_id, onProgress } = {}) => {
+    let promptId;
+    try {
+      const r = await fetch('/api/run-workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, validate, client_id }),
+      });
+      const j = await r.json();
+      if (j.error) throw new Error(j.error);
+      promptId = j.prompt_id;
+    } catch (e) {
+      throw new Error(String(e.message || e));
+    }
+    return await new Promise((resolve, reject) => {
+      const poll = async () => {
+        try {
+          const r = await fetch(`/api/status/${promptId}`);
+          const j = await r.json();
+          if (j.status === 'running') { if (onProgress) onProgress(j); setTimeout(poll, 1500); return; }
+          if (j.status === 'error') { reject(new Error(j.error || '生成失败')); return; }
+          const assets = (j.assets || []).map((a) => ({ ...a, url: viewUrl(a), source: 'remote', ts: Date.now() }));
+          set({ assets: [...get().assets, ...assets] });
+          resolve({ promptId, assets });
+        } catch (e) {
+          setTimeout(poll, 2000);
+        }
+      };
+      setTimeout(poll, 1500);
+    });
   },
 
   fetchModels: async () => {

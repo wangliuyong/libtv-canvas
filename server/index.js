@@ -96,6 +96,43 @@ app.post('/api/reupload', express.json(), async (req, res) => {
   }
 });
 
+// 视频换音色预处理：下载原视频 → ffmpeg 抽人声 → 把 视频/人声/目标音色 上传到 ComfyUI input 目录
+// （LoadVideo / LoadAudio 只从 input 目录读取），再交给 translate 组装工作流。
+async function prepareVoiceSwap(inputs, params) {
+  const vRef = inputs.video && inputs.video.reupload
+    ? inputs.video.reupload
+    : (inputs.video ? { filename: inputs.video, subfolder: '', type: 'output' } : null);
+  const aRef = inputs.ref_audio && inputs.ref_audio.reupload
+    ? inputs.ref_audio.reupload
+    : (inputs.ref_audio ? { filename: inputs.ref_audio, subfolder: '', type: 'output' } : null);
+  if (!vRef) throw new Error('视频换音色需要连接一个「视频」资产作为输入（或在属性面板的输入参考里设置）');
+  if (!aRef) throw new Error('视频换音色需要连接一个「音频」资产作为目标音色参考（或在属性面板的输入参考里设置）');
+
+  const tmp = await mkdtemp(path.join(os.tmpdir(), 'libtv-vswap-'));
+  try {
+    // 1) 下载原视频到本地，抽取干净人声（CosyVoice 偏好 16k 单声道）
+    const vBuf = await fetchAssetBytes(vRef.filename, vRef.subfolder || '', vRef.type || 'output');
+    const vPath = path.join(tmp, 'src_video');
+    await writeFile(vPath, vBuf);
+    const srcWav = path.join(tmp, 'source_speech.wav');
+    await runFFmpeg(['-y', '-i', vPath, '-vn', '-ac', '1', '-ar', '16000', srcWav]);
+
+    // 2) 上传到 ComfyUI input 目录（LoadVideo/LoadAudio 只读 input）
+    const videoName = (await uploadBuffer(vBuf, path.basename(vRef.filename))).name;
+    const srcName = (await uploadBuffer(await readFile(srcWav), `source_speech_${Date.now()}.wav`)).name;
+    const aBuf = await fetchAssetBytes(aRef.filename, aRef.subfolder || '', aRef.type || 'output');
+    const refName = (await uploadBuffer(aBuf, path.basename(aRef.filename))).name;
+
+    // 3) 组装 CosyVoice 声音转换 +（可选）Kling 对口型 工作流
+    const { prompt, saveNodes } = translate('voiceswap', params, {
+      video: videoName, ref_audio: refName, source_speech: srcName,
+    });
+    return { prompt, saveNodes };
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
+}
+
 // 执行一个工具节点：解析输入 -> 翻译 -> 提交队列
 app.post('/api/execute', async (req, res) => {
   try {
@@ -103,6 +140,18 @@ app.post('/api/execute', async (req, res) => {
     const def = getTool(tool);
     if (!def) return res.status(400).json({ error: 'unknown tool ' + tool });
     if (def.scaffold) return res.status(501).json({ error: '该工具为脚手架，尚未接入节点图: ' + def.desc });
+
+    // 视频换音色：需要服务端抽音轨 + 回流文件，单独预处理
+    if (def.id === 'voiceswap') {
+      try {
+        const r = await prepareVoiceSwap(inputs, params);
+        const cid = clientId();
+        const { prompt_id } = await queuePrompt(r.prompt, cid);
+        return res.json({ prompt_id, saveNodes: r.saveNodes });
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
 
     // 解析需要回流的输入（来自上游工具产出的 output 文件）
     const resolved = {};
@@ -121,6 +170,41 @@ app.post('/api/execute', async (req, res) => {
     const cid = clientId();
     const { prompt_id } = await queuePrompt(prompt, cid);
     res.json({ prompt_id, saveNodes });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// 提交任意 ComfyUI API 格式工作流（前端可直接触发实验性 / 自定义工作流）
+// body: { prompt: {nodeId:{class_type,inputs}}, client_id?: string, validate?: boolean }
+//   - prompt 即 ComfyUI /prompt 接口的「prompt」字段（节点 id -> 节点定义）
+//   - validate=true 时先核对每个 class_type 是否在远程实例存在（缺则返回 400，不提交）
+//   - 文件输入（LoadImage/LoadAudio/LoadVideo）需已存在于 ComfyUI input 目录，
+//     可先用 /api/upload 或 /api/reupload 把资产推上去，再提交本工作流。
+app.post('/api/run-workflow', async (req, res) => {
+  try {
+    const { prompt, client_id, validate } = req.body || {};
+    if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt) || Object.keys(prompt).length === 0) {
+      return res.status(400).json({ error: 'prompt 必须是非空的 ComfyUI API 格式对象（节点 id -> {class_type, inputs}）' });
+    }
+    // 轻量结构校验：每个节点需含 class_type 与 inputs
+    for (const [id, node] of Object.entries(prompt)) {
+      if (!node || typeof node !== 'object' || !node.class_type || typeof node.inputs !== 'object') {
+        return res.status(400).json({ error: `节点 ${id} 缺少 class_type 或 inputs 字段` });
+      }
+    }
+    if (validate) {
+      try {
+        const info = await getObjectInfo();
+        const missing = [...new Set(Object.values(prompt).map((n) => n.class_type))].filter((c) => !info[c]);
+        if (missing.length) return res.status(400).json({ error: '未知节点类型: ' + missing.join(', '), missing });
+      } catch (e) {
+        console.warn('[run-workflow] object_info 校验跳过:', e.message);
+      }
+    }
+    const cid = client_id || clientId();
+    const { prompt_id } = await queuePrompt(prompt, cid);
+    res.json({ prompt_id, client_id: cid });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
