@@ -238,3 +238,8 @@
 .lib-item span { font-size: 9.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .screen .pf, .params .pf { margin-bottom: 9px; }
 .wh-hint { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.h3-tag {
+  font-size: 10px; color: var(--accent); background: var(--accent-soft);
+  border: 1px solid var(--accent-ring); border-radius: 6px; padding: 1px 6px; margin-left: 6px;
+  font-weight: 600; vertical-align: 1px;
+}

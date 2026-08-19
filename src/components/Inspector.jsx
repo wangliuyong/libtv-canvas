@@ -3,18 +3,39 @@ import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
 import Icon from './icons.jsx';
 
-const ASPECTS = [
+// 图片工具（t2i/ref2i/char3view 等）画幅与长边分辨率
+const IMG_ASPECTS = [
   { id: '16:9', w: 16, h: 9 },
   { id: '9:16', w: 9, h: 16 },
   { id: '1:1', w: 1, h: 1 },
   { id: '4:3', w: 4, h: 3 },
 ];
-const RESS = { '1K': 1280, '2K': 2560, '4K': 3840 };
+const IMG_RESS = { '1K': 1280, '2K': 2560, '4K': 3840 };
 
-// 由画幅 + 分辨率推导像素宽高（长边取分辨率值，按画幅比例计算短边）
-function computeWH(aspectId, res) {
-  const a = ASPECTS.find((x) => x.id === aspectId) || ASPECTS[0];
-  const long = RESS[res] || 1920;
+// MiniMax H3 开源版视频规格：短边默认 768px（上限 768×1344，最低 384p，256p 失败），分辨率网格按 32 对齐
+const VID_ASPECTS = [
+  { id: '21:9', w: 21, h: 9 },
+  { id: '16:9', w: 16, h: 9 },
+  { id: '4:3', w: 4, h: 3 },
+  { id: '1:1', w: 1, h: 1 },
+  { id: '3:4', w: 3, h: 4 },
+  { id: '9:16', w: 9, h: 16 },
+];
+const VID_RESS = { '768p 全质': 768, '640p': 640, '512p': 512, '384p 快速': 384 };
+const H3_ALIGN = 32;
+
+// 由画幅 + 分辨率推导像素宽高：图片=长边取分辨率；视频=短边取分辨率（32 对齐、384~1344 区间）
+function computeWH(aspectId, res, isVideo) {
+  if (isVideo) {
+    const a = VID_ASPECTS.find((x) => x.id === aspectId) || VID_ASPECTS[0];
+    const base = VID_RESS[res] || 768;
+    const align = (v) => Math.max(384, Math.min(1344, Math.round(v / H3_ALIGN) * H3_ALIGN));
+    const ratio = a.w / a.h;
+    if (ratio >= 1) return { w: align(base * ratio), h: base };
+    return { w: base, h: align(base / ratio) };
+  }
+  const a = IMG_ASPECTS.find((x) => x.id === aspectId) || IMG_ASPECTS[0];
+  const long = IMG_RESS[res] || 1920;
   let w, h;
   if (a.w >= a.h) { w = long; h = Math.round(long * a.h / a.w); }
   else { h = long; w = Math.round(long * a.w / a.h); }
@@ -142,9 +163,13 @@ export default function Inspector({ nodeId } = {}) {
   const params = node.data.params || {};
   const refs = node.data.refs || {};
   const isGen = (def.outputs || []).some((o) => o === 'image' || o === 'video');
+  const isVideo = (def.outputs || []).includes('video');
+  const aspects = isVideo ? VID_ASPECTS : IMG_ASPECTS;
+  const ress = isVideo ? VID_RESS : IMG_RESS;
+  const defRes = isVideo ? '768p 全质' : '2K';
 
   const applyScreen = (aspectId, res) => {
-    const { w, h } = computeWH(aspectId, res);
+    const { w, h } = computeWH(aspectId, res, isVideo);
     updateNodeData(node.id, { params: { ...params, _aspect: aspectId, _res: res, width: w, height: h } });
   };
 
@@ -224,15 +249,15 @@ export default function Inspector({ nodeId } = {}) {
       {/* 画面设置：画幅 / 分辨率 / 画质 / 张数（生成类工具） */}
       {isGen && (
         <div className="screen">
-          <div className="refs-h">画面设置</div>
-          <label className="pf"><span>画幅</span>
-            <select value={params._aspect || '16:9'} onChange={(e) => applyScreen(e.target.value, params._res || '2K')}>
-              {ASPECTS.map((a) => <option key={a.id} value={a.id}>{a.id}</option>)}
+          <div className="refs-h">画面设置{isVideo && <span className="h3-tag">MiniMax H3 规格</span>}</div>
+          <label className="pf"><span>画幅 / 视频比例</span>
+            <select value={params._aspect || '16:9'} onChange={(e) => applyScreen(e.target.value, params._res || defRes)}>
+              {aspects.map((a) => <option key={a.id} value={a.id}>{a.id}</option>)}
             </select>
           </label>
           <label className="pf"><span>分辨率</span>
-            <select value={params._res || '2K'} onChange={(e) => applyScreen(params._aspect || '16:9', e.target.value)}>
-              {Object.keys(RESS).map((r) => <option key={r} value={r}>{r}</option>)}
+            <select value={params._res || defRes} onChange={(e) => applyScreen(params._aspect || '16:9', e.target.value)}>
+              {Object.keys(ress).map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </label>
           <label className="pf"><span>画质</span>
@@ -241,10 +266,16 @@ export default function Inspector({ nodeId } = {}) {
               <option value="hd">高清</option>
             </select>
           </label>
-          <label className="pf"><span>张数</span>
-            <input type="number" min={1} max={4} value={params._count || 1} onChange={(e) => updateNodeData(node.id, { params: { ...params, _count: Math.max(1, Number(e.target.value) || 1) } })} />
-          </label>
-          <div className="wh-hint">输出 {(params.width || computeWH(params._aspect || '16:9', params._res || '2K').w)} × {(params.height || computeWH(params._aspect || '16:9', params._res || '2K').h)}</div>
+          {!isVideo && (
+            <label className="pf"><span>张数</span>
+              <input type="number" min={1} max={4} value={params._count || 1} onChange={(e) => updateNodeData(node.id, { params: { ...params, _count: Math.max(1, Number(e.target.value) || 1) } })} />
+            </label>
+          )}
+          <div className="wh-hint">
+            {isVideo
+              ? `输出 ${params.width || computeWH(params._aspect || '16:9', params._res || defRes, true).w} × ${params.height || computeWH(params._aspect || '16:9', params._res || defRes, true).h}（短边 ${params.height || 768}px · 32 对齐）`
+              : `输出 ${params.width || computeWH(params._aspect || '16:9', params._res || defRes, false).w} × ${params.height || computeWH(params._aspect || '16:9', params._res || defRes, false).h}`}
+          </div>
         </div>
       )}
 

@@ -374,6 +374,21 @@ function P_denoise(v) {
   return Math.min(1, Math.max(0, x));
 }
 
+// —— MiniMax H3 开源版分辨率限制（官方规格）——
+// 分辨率网格按 32 对齐；短边默认 768px（上限 768×1344，最低 384p，256p 会直接生成失败）。
+// 任意宽高输入都会被规整到合法网格，避免非法尺寸导致生成失败。
+const H3_MIN_EDGE = 384;
+const H3_MAX_SHORT = 768;
+const H3_MAX_LONG = 1344;
+function h3Fit(w, h) {
+  const W = Math.max(1, Number(w) || 1344);
+  const H = Math.max(1, Number(h) || 768);
+  const short = Math.min(W, H);
+  const scale = Math.max(H3_MIN_EDGE, Math.min(H3_MAX_SHORT, short)) / short;
+  const align = (v) => Math.max(H3_MIN_EDGE, Math.min(H3_MAX_LONG, Math.round((v * scale) / 32) * 32));
+  return { width: align(W), height: align(H) };
+}
+
 // ---- 翻译入口 ----
 export function translate(toolId, params = {}, inputs = {}) {
   const P = { ...params };
@@ -383,13 +398,13 @@ export function translate(toolId, params = {}, inputs = {}) {
   switch (toolId) {
     case 't2v':
       return buildMiniMaxH3Accel({
-        prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
+        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 124,
         taskType: 'T2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 't2v',
       });
     case 'i2v':
       return buildMiniMaxH3Accel({
-        prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
+        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 124,
         taskType: 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         firstFrame: inputs.image, refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 'i2v',
       });
@@ -397,14 +412,14 @@ export function translate(toolId, params = {}, inputs = {}) {
       const firstFrame = inputs.first_frame;
       const lastFrame = inputs.last_frame;
       return buildMiniMaxH3Accel({
-        prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
+        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 124,
         taskType: firstFrame && lastFrame ? 'FL2VA' : 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         firstFrame, lastFrame, refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 'i2vfl',
       });
     }
     case 'ref2v':
       return buildMiniMaxH3Accel({
-        prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 192,
+        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 192,
         taskType: 'Ref2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         refImages: inputs.ref_images || [],
         refAudios: [inputs.audio, ...(inputs.ref_audios || [])].filter(Boolean),
@@ -412,7 +427,7 @@ export function translate(toolId, params = {}, inputs = {}) {
       });
     case 'a2v':
       return buildMiniMaxH3Accel({
-        prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 192,
+        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 192,
         taskType: 'Ref2VA', audioMode: 'remix_source', steps: P.steps, turbo: P.turbo !== 'false',
         driveAudio: inputs.audio, refImages: inputs.ref_images || [], refAudios: inputs.ref_audios || [],
         seed: P.seed | 0, prefix: P.prefix || 'a2v',
