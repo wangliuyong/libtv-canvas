@@ -21,6 +21,29 @@ function _metaList(map) {
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+// —— 轻量路由（基于 URL hash，刷新/分享/前进后退天然保持，不引入 react-router）——
+// 主页：#/   画布：#/c/<id>
+function parseHash() {
+  const h = (typeof location !== 'undefined' ? location.hash : '').replace(/^#/, '');
+  const m = h.match(/^\/c\/(.+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function writeHash(id) {
+  if (typeof location === 'undefined') return;
+  const next = id ? '#/c/' + encodeURIComponent(id) : '#/';
+  if (location.hash !== next) location.hash = next;
+}
+// 初始进入：若 URL 指向某个已存在的画布，直接打开它（刷新保持视图）
+function _initialView() {
+  const id = parseHash();
+  if (id && _readCanvases()[id]) {
+    const c = _readCanvases()[id];
+    return { id, nodes: c.nodes || [], edges: c.edges || [] };
+  }
+  return { id: null, nodes: [], edges: [] };
+}
+const _init = _initialView();
+
 // 节点默认尺寸：宽度固定（舒适初始宽度），高度由内容自适应；
 // 作为 NodeResizer 的基准，缩放可双向生效。重置尺寸时恢复到这里。
 const NODE_DEFAULT_STYLE = {
@@ -92,8 +115,8 @@ export const TEMPLATES = {
 export const TEMPLATE_LIST = Object.values(TEMPLATES);
 
 export const useStore = create((set, get) => ({
-  nodes: [],
-  edges: [],
+  nodes: _init.nodes,
+  edges: _init.edges,
   past: [],
   future: [],
   selectedId: null,
@@ -108,9 +131,9 @@ export const useStore = create((set, get) => ({
   configOpen: false,          // ComfyUI 配置弹窗
   projTip: '',                // 顶部操作提示（toast）
 
-  // —— 多画布 ——
+  // —— 多画布 / 路由 ——
   canvases: [],               // 画布元数据列表（不含 nodes/edges 内容）
-  currentCanvasId: null,      // null 表示停留在主页；否则进入对应画布
+  currentCanvasId: _init.id,  // null 表示停留在主页；否则进入对应画布（由 URL hash 决定）
 
   setConfigOpen: (v) => set({ configOpen: v }),
   setProjTip: (msg) => {
@@ -135,13 +158,23 @@ export const useStore = create((set, get) => ({
     map[id] = { id, name: (name || '').trim() || '未命名画布', createdAt: now, updatedAt: now, nodeCount: nodes.length, nodes, edges };
     _writeCanvases(map);
     set({ canvases: _metaList(map), currentCanvasId: id, nodes, edges, selectedId: null, past: [], future: [] });
+    writeHash(id);
     return id;
+  },
+
+  // 浏览器前进/后退或外部修改 hash → 同步当前视图（不存在的画布回落主页）
+  _applyRoute: (id) => {
+    if (!id) { set({ currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] }); return; }
+    const c = _readCanvases()[id];
+    if (!c) { set({ currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] }); return; }
+    set({ currentCanvasId: id, nodes: c.nodes || [], edges: c.edges || [], selectedId: null, past: [], future: [] });
   },
 
   openCanvas: (id) => {
     const c = _readCanvases()[id];
-    if (!c) return;
+    if (!c) { writeHash(null); return; }
     set({ currentCanvasId: id, nodes: c.nodes || [], edges: c.edges || [], selectedId: null, past: [], future: [] });
+    writeHash(id);
   },
 
   deleteCanvas: (id) => {
@@ -153,6 +186,7 @@ export const useStore = create((set, get) => ({
       canvases: _metaList(map),
       ...(isCurrent ? { currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] } : {}),
     });
+    if (isCurrent) writeHash(null);
   },
 
   renameCanvas: (id, name) => {
@@ -183,7 +217,7 @@ export const useStore = create((set, get) => ({
     set({ canvases: _metaList(map) });
   },
 
-  goHome: () => set({ currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] }),
+  goHome: () => { set({ currentCanvasId: null, nodes: [], edges: [], selectedId: null, past: [], future: [] }); writeHash(null); },
 
   // 工作流下载 / 导入（保存·导出·导入共用）
   downloadJSON: (filename) => {
@@ -599,3 +633,11 @@ export const useStore = create((set, get) => ({
   addJob: (job) => set({ jobs: [...get().jobs, job] }),
   updateJob: (id, patch) => set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, ...patch } : j)) }),
 }));
+
+// 浏览器前进/后退或外部修改 hash → 同步画布视图（刷新后由 _initialView 恢复）
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    const id = parseHash();
+    useStore.getState()._applyRoute(id && _readCanvases()[id] ? id : null);
+  });
+}
