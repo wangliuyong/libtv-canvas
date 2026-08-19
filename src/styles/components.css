@@ -82,7 +82,7 @@
 /* 节点内提示词输入框（输入 @ 弹选择器；高度随内容自适应，上限 160px） */
 .tn-prompt-wrap { position: relative; margin-bottom: 8px; }
 .tn-prompt {
-  width: 100%; min-height: 44px; max-height: 160px; resize: none; overflow: hidden;
+  width: 100%; min-height: 44px; max-height: 160px; resize: none; overflow-y: auto;
   background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text);
   border-radius: var(--r-sm); padding: 6px 8px; font-size: 12px; line-height: 1.5; outline: none;
   font-family: inherit;

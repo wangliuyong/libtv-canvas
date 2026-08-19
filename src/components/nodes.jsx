@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, useEffect, Fragment } from 'react';
+import React, { useRef, useState, useMemo, useLayoutEffect, useEffect, Fragment } from 'react';
 import { Handle, Position, NodeResizer } from 'reactflow';
 import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
@@ -66,6 +66,7 @@ function ToolNode({ id, data, selected }) {
   const resetNodeSize = useStore((s) => s.resetNodeSize);
   const nodes = useStore((s) => s.nodes);
   const edges = useStore((s) => s.edges);
+  const assets = useStore((s) => s.assets);
   const def = getTool(data.tool);
   if (!def) return <div className="lnode">未知工具</div>;
   const status = data.status || 'idle';
@@ -74,49 +75,57 @@ function ToolNode({ id, data, selected }) {
   const promptRef = useRef(null);
   const [mention, setMention] = useState(null); // { open, atPos, endPos, value, items }
 
-  // 提示词框高度自适应（内容撑高，上限 160px 内部滚动）
+  // 提示词框高度自适应：每次渲染按当前值重算（内容撑高，上限 160px），并监听宽度变化（节点缩放）
   const resizePrompt = () => {
     const el = promptRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   };
-  useEffect(resizePrompt, [data.refs?.prompt]);
+  useLayoutEffect(resizePrompt);
+  useEffect(() => {
+    const el = promptRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(resizePrompt);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  // @ 可选项：当前节点上游已连线的 图片/音频（资产节点 or 工具产出）
-  const upstream = useMemo(() => {
+  // @ 可选项：已连线的图片/音频优先 + 资产库兜底（与运行时 resolveAtRefs 的匹配来源一致）
+  const mentionItems = useMemo(() => {
     const out = [];
     const seen = new Set();
+    const push = (label, media) => {
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      out.push({ label, media });
+    };
     edges.filter((e) => e.target === id).forEach((e) => {
       const src = nodes.find((n) => n.id === e.source);
       if (!src) return;
-      const push = (filename, media) => {
-        if (!filename || seen.has(filename)) return;
-        seen.add(filename);
-        out.push({ label: filename, media });
-      };
-      if (src.type === 'asset') {
-        if (src.data.kind === 'image' || src.data.kind === 'audio') push(src.data.filename, src.data.kind);
+      if (src.type === 'asset' && (src.data.kind === 'image' || src.data.kind === 'audio')) {
+        push(src.data.filename, src.data.kind);
       } else if (src.type === 'tool' && src.data.result?.assets) {
         src.data.result.assets.forEach((a) => { if (a.media === 'image' || a.media === 'audio') push(a.filename, a.media); });
       }
     });
+    assets.forEach((a) => { if (a.media === 'image' || a.media === 'audio') push(a.filename, a.media); });
     return out;
-  }, [nodes, edges, id]);
+  }, [nodes, edges, assets, id]);
 
   const handlePromptChange = (e) => {
     const el = e.target;
     const value = el.value;
-    const cursor = el.selectionStart ?? value.length;
     updateNodeData(id, { refs: { ...(data.refs || {}), prompt: value } });
     resizePrompt();
-    // 检测光标前最近的 @token（未闭合），弹出可选项
-    const lastAt = value.lastIndexOf('@', cursor - 1);
+    requestAnimationFrame(resizePrompt); // 兜底：等 DOM 完全稳定后再重算高度
+    // 用最后一个 @ 及之后是否有分隔符判断是否处于「@token」输入状态（不依赖光标位置，更稳）
+    const lastAt = value.lastIndexOf('@');
     if (lastAt >= 0) {
-      const seg = value.slice(lastAt + 1, cursor);
-      if (!/[\s,，。；;\n]/.test(seg)) {
-        const q = seg.toLowerCase();
-        setMention({ open: true, atPos: lastAt, endPos: cursor, value, items: upstream.filter((u) => !q || u.label.toLowerCase().includes(q)) });
+      const tail = value.slice(lastAt + 1);
+      if (!/[\s,，。；;\n]/.test(tail)) {
+        const q = tail.toLowerCase();
+        setMention({ open: true, atPos: lastAt, endPos: value.length, value, items: mentionItems.filter((u) => !q || u.label.toLowerCase().includes(q)) });
         return;
       }
     }
