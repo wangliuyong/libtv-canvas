@@ -79,6 +79,16 @@
 
 .tn-desc { font-size: 11.5px; color: var(--text-2); margin-bottom: 10px; line-height: 1.5; }
 
+/* 节点内提示词输入框（支持 @ 引用资产库图片/声音） */
+.tn-prompt {
+  width: 100%; min-height: 44px; resize: vertical; margin-bottom: 8px;
+  background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text);
+  border-radius: var(--r-sm); padding: 6px 8px; font-size: 12px; line-height: 1.5; outline: none;
+  font-family: inherit;
+}
+.tn-prompt:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+.tn-prompt::placeholder { color: var(--text-3); }
+
 /* 运行按钮 —— 渐变主按钮 */
 .run {
   width: 100%; border: none;

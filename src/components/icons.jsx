@@ -11,7 +11,7 @@ const MAP = {
   // 基础资产节点
   text: FileText, script: ScrollText, image: ImageIcon, video: Film, audio: AudioLines,
   // AI 工具（与 server/tools.js 的 tool.icon 一致）
-  t2i: ImageIcon, char3view: Users, storyboard: Clapperboard, i2v: Film, ref2v: Images,
+  t2i: ImageIcon, char3view: Users, storyboard: Clapperboard, i2v: Film, i2vfl: Film, ref2v: Images,
   ref2i: ImagePlus,
   t2v: Video, a2v: AudioLines, upscale: Search, color: Palette, interp: FastForward, bg: Sun,
   // 通用 UI

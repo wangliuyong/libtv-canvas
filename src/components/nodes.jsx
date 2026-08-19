@@ -62,6 +62,7 @@ function AssetNode({ id, data, selected }) {
 
 function ToolNode({ id, data, selected }) {
   const runNode = useStore((s) => s.runNode);
+  const updateNodeData = useStore((s) => s.updateNodeData);
   const resetNodeSize = useStore((s) => s.resetNodeSize);
   const def = getTool(data.tool);
   if (!def) return <div className="lnode">未知工具</div>;
@@ -74,6 +75,19 @@ function ToolNode({ id, data, selected }) {
       <div className={'lnode tool ' + (selected ? 'sel' : '')}>
       <div className="lnode-h"><Icon name={def.id} /><span className="node-title">{data.label}</span><span className="badge"><span className={'sdot ' + status} />{statusText}</span>{selected && <button className="node-reset" title="重置尺寸" onMouseDown={(e) => e.stopPropagation()} onClick={() => resetNodeSize(id)}><Icon name="maximize" size={12} /></button>}</div>
       <div className="tn-desc">{def.desc}</div>
+
+      {/* 节点内直接输入提示词（含 prompt 输入的工具），支持 @ 引用资产库图片/声音 */}
+      {def.inputs.some((i) => i.key === 'prompt') && (
+        <textarea
+          className="tn-prompt"
+          rows={2}
+          placeholder="提示词（可用 @引用资产库中的 图片/声音）"
+          value={data.refs?.prompt || ''}
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => updateNodeData(id, { refs: { ...(data.refs || {}), prompt: e.target.value } })}
+        />
+      )}
+
       <button className="run" disabled={status === 'running'} onClick={() => runNode(id)}>
         {status === 'running' ? '生成中…' : <><Icon name="play" size={14} /> 运行</>}
       </button>

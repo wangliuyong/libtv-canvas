@@ -129,12 +129,10 @@ export const TOOLS = [
     ],
   },
   {
-    id: 'i2v', name: '图生视频 (首尾帧+参考)', cat: 'video', icon: '🎬',
-    desc: 'MiniMax-H3：首帧必填；可补尾帧 / 多张参考图，自动切换 I2VA→FL2VA→Hybrid',
+    id: 'i2v', name: '图生视频 / 首帧', cat: 'video', icon: '🎬',
+    desc: '以一张图作为首帧，MiniMax-H3 生成带画面视频（I2VA）',
     inputs: [
-      { key: 'first_frame', label: '首帧图', type: 'image', required: true },
-      { key: 'last_frame', label: '尾帧图', type: 'image' },
-      { key: 'ref_images', label: '参考图', type: 'image', multi: true },
+      { key: 'image', label: '首帧图', type: 'image', required: true },
       { key: 'prompt', label: '运动/镜头提示', type: 'text', required: true },
     ],
     outputs: ['video'],
@@ -149,12 +147,31 @@ export const TOOLS = [
     ],
   },
   {
-    id: 'ref2v', name: '参考图生视频', cat: 'video', icon: '🖼️➡️🎬',
-    desc: '多张参考图 + 结构化提示，MiniMax-H3 生成一致性视频（含可选音频）',
+    id: 'i2vfl', name: '首尾帧生视频', cat: 'video', icon: '🎬',
+    desc: 'MiniMax-H3：首帧必填 + 尾帧可选，生成两帧之间的连贯视频（FL2VA）',
+    inputs: [
+      { key: 'first_frame', label: '首帧图', type: 'image', required: true },
+      { key: 'last_frame', label: '尾帧图', type: 'image' },
+      { key: 'prompt', label: '提示词', type: 'text', required: true },
+    ],
+    outputs: ['video'],
+    params: [
+      { key: 'width', label: '宽', type: 'number', default: 1344 },
+      { key: 'height', label: '高', type: 'number', default: 768 },
+      { key: 'length', label: '帧数(÷24≈秒)', type: 'number', default: 124 },
+      { key: 'steps', label: '步数(加速=8)', type: 'number', default: 8 },
+      { key: 'turbo', label: '加速(turbo LoRA)', type: 'select', options: ['true', 'false'], default: 'true' },
+      { key: 'seed', label: '种子', type: 'number', default: 0 },
+      { key: 'prefix', label: '文件名前缀', type: 'text', default: 'i2vfl' },
+    ],
+  },
+  {
+    id: 'ref2v', name: '多参考图生视频', cat: 'video', icon: '🖼️➡️🎬',
+    desc: '多张参考图 + 提示词（可用 @ 引用资产库图片/声音），MiniMax-H3 生成一致性视频（Ref2VA）',
     inputs: [
       { key: 'ref_images', label: '参考图', type: 'image', multi: true, required: true },
       { key: 'audio', label: '参考音频(可选)', type: 'audio' },
-      { key: 'prompt', label: '结构化提示', type: 'text', required: true },
+      { key: 'prompt', label: '提示词（@图片/@声音）', type: 'text', required: true },
     ],
     outputs: ['video'],
     params: [
@@ -368,35 +385,37 @@ export function translate(toolId, params = {}, inputs = {}) {
       return buildMiniMaxH3Accel({
         prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
         taskType: 'T2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
-        seed: P.seed | 0, prefix: P.prefix || 't2v',
+        refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 't2v',
       });
-    case 'i2v': {
-      const firstFrame = inputs.first_frame;
-      const lastFrame = inputs.last_frame;
-      const refImages = inputs.ref_images || [];
-      // 按实际提供的图像自动选择 task_type：首帧 → I2VA；首尾帧 → FL2VA；再叠加参考图 → Hybrid
-      let task = 'I2VA';
-      if (firstFrame && lastFrame && refImages.length) task = 'Hybrid';
-      else if (firstFrame && lastFrame) task = 'FL2VA';
-      else if (refImages.length) task = 'Ref2VA';
-      else if (firstFrame) task = 'I2VA';
+    case 'i2v':
       return buildMiniMaxH3Accel({
         prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
-        taskType: task, audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
-        firstFrame, lastFrame, refImages, seed: P.seed | 0, prefix: P.prefix || 'i2v',
+        taskType: 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
+        firstFrame: inputs.image, refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 'i2v',
+      });
+    case 'i2vfl': {
+      const firstFrame = inputs.first_frame;
+      const lastFrame = inputs.last_frame;
+      return buildMiniMaxH3Accel({
+        prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
+        taskType: firstFrame && lastFrame ? 'FL2VA' : 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
+        firstFrame, lastFrame, refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 'i2vfl',
       });
     }
     case 'ref2v':
       return buildMiniMaxH3Accel({
         prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 192,
         taskType: 'Ref2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
-        refImages: inputs.ref_images || [], seed: P.seed | 0, prefix: P.prefix || 'ref2v',
+        refImages: inputs.ref_images || [],
+        refAudios: [inputs.audio, ...(inputs.ref_audios || [])].filter(Boolean),
+        seed: P.seed | 0, prefix: P.prefix || 'ref2v',
       });
     case 'a2v':
       return buildMiniMaxH3Accel({
         prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 192,
         taskType: 'Ref2VA', audioMode: 'remix_source', steps: P.steps, turbo: P.turbo !== 'false',
-        driveAudio: inputs.audio, refImages: inputs.ref_images || [], seed: P.seed | 0, prefix: P.prefix || 'a2v',
+        driveAudio: inputs.audio, refImages: inputs.ref_images || [], refAudios: inputs.ref_audios || [],
+        seed: P.seed | 0, prefix: P.prefix || 'a2v',
       });
     case 'upscale': {
       const n = {};

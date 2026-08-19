@@ -66,6 +66,35 @@ function viewUrl(a) {
   return `/api/view?${qs}`;
 }
 
+// 提示词 @ 引用解析：@图片名/@声音名 → 参考图 / 参考声音，并净化提示词文本。
+// 返回 { prompt, images, audios }；无有效引用时返回 null。
+// images/audios 为 { reupload:{filename,subfolder,type} }（后端 pickName 兼容）。
+function resolveAtRefs(prompt, assets) {
+  const tokens = [];
+  const re = /@([^\s@,，。；;]+)/g;
+  let m;
+  while ((m = re.exec(prompt))) tokens.push(m[1]);
+  if (!tokens.length) return null;
+  const images = [], audios = [];
+  const used = new Set();
+  for (const t of tokens) {
+    const key = t.toLowerCase();
+    const hit = assets.find((a) => a.filename && a.filename.toLowerCase().includes(key));
+    if (!hit) continue;
+    const val = { reupload: { filename: hit.filename, subfolder: hit.subfolder || '', type: hit.type || 'output' } };
+    if (hit.media === 'audio') audios.push(val);
+    else images.push(val);
+    used.add(t);
+  }
+  if (!used.size) return null;
+  let cleaned = prompt;
+  for (const t of used) {
+    cleaned = cleaned.replace(new RegExp('[\\s,，]*@' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ' ');
+  }
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return { prompt: cleaned, images, audios };
+}
+
 // —— 内置工作流模板（新建画布时可选，自动预铺节点与连线）——
 function _defaultParams(def) {
   const p = {};
@@ -92,23 +121,26 @@ function _edge(source, target, targetKey, sourceKind) {
   return { id: `e_${source}_${target}_${targetKey}`, source, target, sourceHandle: sourceKind, targetHandle: 'IN:' + targetKey, animated: true };
 }
 
-// MiniMax H3 视频生成：文生视频(t2v) + 图生视频(i2v，首尾帧+参考图)，预设提示词/图片资产并连好线
+// MiniMax H3 视频生成：文生视频(t2v) + 首尾帧生视频(i2vfl) + 多参考图生视频(ref2v)
+// 首尾帧 / 参考图节点可直接在卡片内输入提示词（支持 @ 引用资产库图片/声音）
 function buildMiniMaxVideoTemplate() {
-  const tPrompt = _assetNode('t_prompt', 'text', 60, 320, { label: '视频提示词', text: '镜头缓慢推进，暖色调，电影感，人物自然行走' });
+  const tPrompt = _assetNode('t_prompt', 'text', 60, 360, { label: '视频提示词', text: '镜头缓慢推进，暖色调，电影感，人物自然行走' });
   const tFirst = _assetNode('t_first', 'image', 60, 80, { label: '首帧图' });
-  const tLast = _assetNode('t_last', 'image', 60, 560, { label: '尾帧图' });
-  const tRef1 = _assetNode('t_ref1', 'image', 60, 760, { label: '参考图1' });
-  const tRef2 = _assetNode('t_ref2', 'image', 60, 960, { label: '参考图2' });
-  const t2v = _toolNode('t_t2v', 't2v', 540, 220);
-  const i2v = _toolNode('t_i2v', 'i2v', 540, 580);
-  const nodes = [tPrompt, tFirst, tLast, tRef1, tRef2, t2v, i2v];
+  const tLast = _assetNode('t_last', 'image', 60, 260, { label: '尾帧图' });
+  const tRef1 = _assetNode('t_ref1', 'image', 60, 620, { label: '参考图1' });
+  const tRef2 = _assetNode('t_ref2', 'image', 60, 800, { label: '参考图2' });
+  const t2v = _toolNode('t_t2v', 't2v', 560, 260);
+  const i2vfl = _toolNode('t_i2vfl', 'i2vfl', 560, 560);
+  i2vfl.data.refs = { prompt: '从首帧平滑过渡到尾帧，镜头稳定，主体保持一致' };
+  const ref2v = _toolNode('t_ref2v', 'ref2v', 560, 860);
+  ref2v.data.refs = { prompt: '保持参考图中的人物造型与场景一致，镜头缓慢横移' };
+  const nodes = [tPrompt, tFirst, tLast, tRef1, tRef2, t2v, i2vfl, ref2v];
   const edges = [
     _edge('t_prompt', 't_t2v', 'prompt', 'text'),
-    _edge('t_prompt', 't_i2v', 'prompt', 'text'),
-    _edge('t_first', 't_i2v', 'first_frame', 'image'),
-    _edge('t_last', 't_i2v', 'last_frame', 'image'),
-    _edge('t_ref1', 't_i2v', 'ref_images', 'image'),
-    _edge('t_ref2', 't_i2v', 'ref_images', 'image'),
+    _edge('t_first', 't_i2vfl', 'first_frame', 'image'),
+    _edge('t_last', 't_i2vfl', 'last_frame', 'image'),
+    _edge('t_ref1', 't_ref2v', 'ref_images', 'image'),
+    _edge('t_ref2', 't_ref2v', 'ref_images', 'image'),
   ];
   return { nodes, edges };
 }
@@ -486,6 +518,25 @@ export const useStore = create((set, get) => ({
       } else if (node.data.refs && node.data.refs[inp.key] !== undefined) {
         // 无上游连线时，回退到属性面板里直接填写的参考/提示（multi 时为数组）
         inputs[inp.key] = node.data.refs[inp.key];
+      }
+    }
+    // @ 引用加工：提示词中的 @图片/@声音 → 参考图/参考声音，并净化提示词文本
+    // （调用 runNode 时执行，自动整理成 MiniMax H3 标准传参格式）
+    const rawPrompt = inputs.prompt;
+    if (typeof rawPrompt === 'string' && rawPrompt.includes('@')) {
+      const at = resolveAtRefs(rawPrompt, get().assets);
+      if (at) {
+        inputs.prompt = at.prompt;
+        if (at.images.length) {
+          if (def.inputs.some((i) => i.key === 'ref_images')) {
+            inputs.ref_images = [...(inputs.ref_images || []), ...at.images];
+          } else {
+            // 无参考图输入槽（如首尾帧节点）：依次填入首帧/尾帧
+            if (!inputs.first_frame && at.images[0]) inputs.first_frame = at.images[0];
+            if (!inputs.last_frame && at.images[1]) inputs.last_frame = at.images[1];
+          }
+        }
+        if (at.audios.length) inputs.ref_audios = [...(inputs.ref_audios || []), ...at.audios];
       }
     }
     return inputs;
