@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "灵犀无限画布 AI 视频创作工具，后端接入远程 ComfyUI",
+  "description": "灵犀TV —— AI 视频创作无限画布（后端接入远程 ComfyUI）",
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",

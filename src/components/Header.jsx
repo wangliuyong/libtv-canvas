@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import Icon from './icons.jsx';
+import Logo from './Logo.jsx';
 import StatusBar from './StatusBar.jsx';
 import { useStore } from '../store.js';
 
@@ -27,9 +28,9 @@ export default function Header() {
 
   return (
     <header className="topbar">
-      <span className="logo">
-        <span className="logo-mark"><Icon name="clapperboard" size={18} /></span>
-        灵犀画布
+      <span className="logo clickable" onClick={goHome} title="灵犀TV · 返回首页">
+        <Logo size={30} />
+        <span className="logo-text">灵犀<span className="logo-tv">TV</span></span>
       </span>
       <StatusBar />
       <div className="top-actions">
