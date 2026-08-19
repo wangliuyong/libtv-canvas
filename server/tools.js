@@ -139,7 +139,7 @@ export const TOOLS = [
     params: [
       { key: 'width', label: '宽', type: 'number', default: 1344 },
       { key: 'height', label: '高', type: 'number', default: 768 },
-      { key: 'length', label: '帧数(÷24≈秒)', type: 'number', default: 124 },
+      { key: 'duration', label: '时长(秒)', type: 'select', options: ['5', '6', '8', '10', '12', '15'], default: '8' },
       { key: 'steps', label: '步数(加速=8)', type: 'number', default: 8 },
       { key: 'turbo', label: '加速(turbo LoRA)', type: 'select', options: ['true', 'false'], default: 'true' },
       { key: 'seed', label: '种子', type: 'number', default: 0 },
@@ -158,7 +158,7 @@ export const TOOLS = [
     params: [
       { key: 'width', label: '宽', type: 'number', default: 1344 },
       { key: 'height', label: '高', type: 'number', default: 768 },
-      { key: 'length', label: '帧数(÷24≈秒)', type: 'number', default: 124 },
+      { key: 'duration', label: '时长(秒)', type: 'select', options: ['5', '6', '8', '10', '12', '15'], default: '8' },
       { key: 'steps', label: '步数(加速=8)', type: 'number', default: 8 },
       { key: 'turbo', label: '加速(turbo LoRA)', type: 'select', options: ['true', 'false'], default: 'true' },
       { key: 'seed', label: '种子', type: 'number', default: 0 },
@@ -177,7 +177,7 @@ export const TOOLS = [
     params: [
       { key: 'width', label: '宽', type: 'number', default: 1344 },
       { key: 'height', label: '高', type: 'number', default: 768 },
-      { key: 'length', label: '帧数(÷24≈秒)', type: 'number', default: 192 },
+      { key: 'duration', label: '时长(秒)', type: 'select', options: ['5', '6', '8', '10', '12', '15'], default: '8' },
       { key: 'steps', label: '步数(加速=8)', type: 'number', default: 8 },
       { key: 'turbo', label: '加速(turbo LoRA)', type: 'select', options: ['true', 'false'], default: 'true' },
       { key: 'seed', label: '种子', type: 'number', default: 0 },
@@ -192,7 +192,7 @@ export const TOOLS = [
     params: [
       { key: 'width', label: '宽', type: 'number', default: 1344 },
       { key: 'height', label: '高', type: 'number', default: 768 },
-      { key: 'length', label: '帧数(÷24≈秒)', type: 'number', default: 124 },
+      { key: 'duration', label: '时长(秒)', type: 'select', options: ['5', '6', '8', '10', '12', '15'], default: '8' },
       { key: 'steps', label: '步数(加速=8)', type: 'number', default: 8 },
       { key: 'turbo', label: '加速(turbo LoRA)', type: 'select', options: ['true', 'false'], default: 'true' },
       { key: 'seed', label: '种子', type: 'number', default: 0 },
@@ -211,7 +211,7 @@ export const TOOLS = [
     params: [
       { key: 'width', label: '宽', type: 'number', default: 1344 },
       { key: 'height', label: '高', type: 'number', default: 768 },
-      { key: 'length', label: '帧数', type: 'number', default: 192 },
+      { key: 'duration', label: '时长(秒)', type: 'select', options: ['5', '6', '8', '10', '12', '15'], default: '8' },
       { key: 'steps', label: '步数(加速=8)', type: 'number', default: 8 },
       { key: 'turbo', label: '加速(turbo LoRA)', type: 'select', options: ['true', 'false'], default: 'true' },
       { key: 'prefix', label: '文件名前缀', type: 'text', default: 'a2v' },
@@ -389,6 +389,26 @@ function h3Fit(w, h) {
   return { width: align(W), height: align(H) };
 }
 
+// —— MiniMax H3 帧数硬规则（ComfyUI 节点源码 + 实测）——
+// 帧数必须落在 17k+5 网格（源码 while n%17!=5: n++，向上吸附）；训练区间 124~362 帧（24fps ≈ 5.17~15.08s）。
+// 时长(秒) → 帧数：秒×24 后向上吸附到 17k+5；帧数 → 帧数：直接吸附。
+function h3FramesFromSec(sec) {
+  const s = Math.max(4, Math.min(15, Math.round(Number(sec) || 8)));
+  const want = s * 24;
+  const n = Math.ceil((want - 5) / 17) * 17 + 5;
+  return Math.max(124, Math.min(362, n));
+}
+function h3FramesFromLen(frames) {
+  let n = Math.max(0, Math.round(Number(frames) || 0));
+  while (n % 17 !== 5) n++;
+  return Math.max(124, Math.min(362, n));
+}
+// 节点可配置「时长(秒)」或旧画布的「帧数」；优先 duration，回退 length
+function h3Len(P) {
+  if (P.duration !== undefined && P.duration !== null && P.duration !== '') return h3FramesFromSec(P.duration);
+  return h3FramesFromLen(P.length);
+}
+
 // ---- 翻译入口 ----
 export function translate(toolId, params = {}, inputs = {}) {
   const P = { ...params };
@@ -398,13 +418,13 @@ export function translate(toolId, params = {}, inputs = {}) {
   switch (toolId) {
     case 't2v':
       return buildMiniMaxH3Accel({
-        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 124,
+        ...h3Fit(P.width, P.height), prompt, length: h3Len(P),
         taskType: 'T2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 't2v',
       });
     case 'i2v':
       return buildMiniMaxH3Accel({
-        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 124,
+        ...h3Fit(P.width, P.height), prompt, length: h3Len(P),
         taskType: 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         firstFrame: inputs.image, refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 'i2v',
       });
@@ -412,14 +432,14 @@ export function translate(toolId, params = {}, inputs = {}) {
       const firstFrame = inputs.first_frame;
       const lastFrame = inputs.last_frame;
       return buildMiniMaxH3Accel({
-        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 124,
+        ...h3Fit(P.width, P.height), prompt, length: h3Len(P),
         taskType: firstFrame && lastFrame ? 'FL2VA' : 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         firstFrame, lastFrame, refAudios: inputs.ref_audios || [], seed: P.seed | 0, prefix: P.prefix || 'i2vfl',
       });
     }
     case 'ref2v':
       return buildMiniMaxH3Accel({
-        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 192,
+        ...h3Fit(P.width, P.height), prompt, length: h3Len(P),
         taskType: 'Ref2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         refImages: inputs.ref_images || [],
         refAudios: [inputs.audio, ...(inputs.ref_audios || [])].filter(Boolean),
@@ -427,7 +447,7 @@ export function translate(toolId, params = {}, inputs = {}) {
       });
     case 'a2v':
       return buildMiniMaxH3Accel({
-        ...h3Fit(P.width, P.height), prompt, length: P.length | 0 || 192,
+        ...h3Fit(P.width, P.height), prompt, length: h3Len(P),
         taskType: 'Ref2VA', audioMode: 'remix_source', steps: P.steps, turbo: P.turbo !== 'false',
         driveAudio: inputs.audio, refImages: inputs.ref_images || [], refAudios: inputs.ref_audios || [],
         seed: P.seed | 0, prefix: P.prefix || 'a2v',

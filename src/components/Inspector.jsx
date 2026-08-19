@@ -23,6 +23,13 @@ const VID_ASPECTS = [
 ];
 const VID_RESS = { '768p 全质': 768, '640p': 640, '512p': 512, '384p 快速': 384 };
 const H3_ALIGN = 32;
+// MiniMax H3 帧数硬规则：帧数落在 17k+5 网格（24fps，训练区间 124~362 帧 ≈ 5.17~15.08s）
+const DUR_OPTS = ['5', '6', '8', '10', '12', '15'];
+function h3Frames(sec) {
+  const s = Math.max(4, Math.min(15, Math.round(Number(sec) || 8)));
+  const n = Math.ceil((s * 24 - 5) / 17) * 17 + 5;
+  return Math.max(124, Math.min(362, n));
+}
 
 // 由画幅 + 分辨率推导像素宽高：图片=长边取分辨率；视频=短边取分辨率（32 对齐、384~1344 区间）
 function computeWH(aspectId, res, isVideo) {
@@ -260,12 +267,27 @@ export default function Inspector({ nodeId } = {}) {
               {Object.keys(ress).map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </label>
-          <label className="pf"><span>画质</span>
-            <select value={params._quality || 'standard'} onChange={(e) => updateNodeData(node.id, { params: { ...params, _quality: e.target.value, steps: e.target.value === 'hd' ? 20 : 8 } })}>
-              <option value="standard">标准</option>
-              <option value="hd">高清</option>
-            </select>
-          </label>
+          {!isVideo && (
+            <label className="pf"><span>画质</span>
+              <select value={params._quality || 'standard'} onChange={(e) => updateNodeData(node.id, { params: { ...params, _quality: e.target.value, steps: e.target.value === 'hd' ? 20 : 8 } })}>
+                <option value="standard">标准</option>
+                <option value="hd">高清</option>
+              </select>
+            </label>
+          )}
+          {isVideo && (
+            <>
+              <label className="pf"><span>时长(秒)</span>
+                <select value={String(params.duration ?? '8')} onChange={(e) => updateNodeData(node.id, { params: { ...params, duration: e.target.value } })}>
+                  {DUR_OPTS.map((d) => <option key={d} value={d}>{d} 秒</option>)}
+                </select>
+              </label>
+              <label className="pf"><span>步数(加速)</span>
+                <input type="number" min={1} max={40} value={params.steps ?? 8}
+                  onChange={(e) => updateNodeData(node.id, { params: { ...params, steps: Math.max(1, Number(e.target.value) || 8) } })} />
+              </label>
+            </>
+          )}
           {!isVideo && (
             <label className="pf"><span>张数</span>
               <input type="number" min={1} max={4} value={params._count || 1} onChange={(e) => updateNodeData(node.id, { params: { ...params, _count: Math.max(1, Number(e.target.value) || 1) } })} />
@@ -273,7 +295,7 @@ export default function Inspector({ nodeId } = {}) {
           )}
           <div className="wh-hint">
             {isVideo
-              ? `输出 ${params.width || computeWH(params._aspect || '16:9', params._res || defRes, true).w} × ${params.height || computeWH(params._aspect || '16:9', params._res || defRes, true).h}（短边 ${params.height || 768}px · 32 对齐）`
+              ? `输出 ${params.width || computeWH(params._aspect || '16:9', params._res || defRes, true).w} × ${params.height || computeWH(params._aspect || '16:9', params._res || defRes, true).h} · 时长 ${params.duration || '8'} 秒 → ${h3Frames(params.duration || '8')} 帧（17k+5 网格）`
               : `输出 ${params.width || computeWH(params._aspect || '16:9', params._res || defRes, false).w} × ${params.height || computeWH(params._aspect || '16:9', params._res || defRes, false).h}`}
           </div>
         </div>
