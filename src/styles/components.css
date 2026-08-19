@@ -79,10 +79,13 @@
 
 .tn-desc { font-size: 11.5px; color: var(--text-2); margin-bottom: 10px; line-height: 1.5; }
 
-/* 节点内提示词输入框（输入 @ 弹选择器；高度随内容自适应，上限 160px） */
+/* 节点内提示词输入框（输入 @ 弹选择器；内容自适应高度，可手动拖拽调整，宽度随节点） */
 .tn-prompt-wrap { position: relative; margin-bottom: 8px; }
 .tn-prompt {
-  width: 100%; min-height: 44px; max-height: 160px; resize: none; overflow-y: auto;
+  width: 100%; min-height: 44px; max-height: 160px;
+  resize: vertical;                 /* 保留手动拖拽调整尺寸 */
+  field-sizing: content;            /* 高度随内容自适应（节点缩放宽度变化也会自动重算） */
+  overflow-y: auto;
   background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text);
   border-radius: var(--r-sm); padding: 6px 8px; font-size: 12px; line-height: 1.5; outline: none;
   font-family: inherit;

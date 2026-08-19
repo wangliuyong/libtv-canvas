@@ -75,8 +75,10 @@ function ToolNode({ id, data, selected }) {
   const promptRef = useRef(null);
   const [mention, setMention] = useState(null); // { open, atPos, endPos, value, items }
 
-  // 提示词框高度自适应：每次渲染按当前值重算（内容撑高，上限 160px），并监听宽度变化（节点缩放）
+  // 提示词框高度自适应：优先浏览器原生 field-sizing（内容/宽度变化自动重算，可手动拖拽），
+  // 不支持 field-sizing 的浏览器降级为 JS 按 scrollHeight 撑高（上限 160px）
   const resizePrompt = () => {
+    if (typeof CSS !== 'undefined' && CSS.supports && CSS.supports('field-sizing', 'content')) return;
     const el = promptRef.current;
     if (!el) return;
     el.style.height = 'auto';
