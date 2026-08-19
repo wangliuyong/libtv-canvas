@@ -283,8 +283,8 @@ export default function Inspector({ nodeId } = {}) {
                 </select>
               </label>
               <label className="pf"><span>步数(加速)</span>
-                <input type="number" min={1} max={40} value={params.steps ?? 8}
-                  onChange={(e) => updateNodeData(node.id, { params: { ...params, steps: Math.max(1, Number(e.target.value) || 8) } })} />
+                <input type="number" min={1} max={40} value={params.steps ?? 4}
+                  onChange={(e) => updateNodeData(node.id, { params: { ...params, steps: Math.max(1, Number(e.target.value) || 4) } })} />
               </label>
             </>
           )}
