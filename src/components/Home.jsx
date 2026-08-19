@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Icon from './icons.jsx';
 import { useStore, TEMPLATE_LIST } from '../store.js';
+import AssetPanel from './AssetPanel.jsx';
 
 function fmtDate(ts) {
   if (!ts) return '';
@@ -17,12 +18,17 @@ export default function Home() {
   const deleteCanvas = useStore((s) => s.deleteCanvas);
   const renameCanvas = useStore((s) => s.renameCanvas);
   const setProjTip = useStore((s) => s.setProjTip);
+  const fetchRemoteList = useStore((s) => s.fetchRemoteList);
 
+  const [tab, setTab] = useState('canvases'); // canvases | assets
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newTemplate, setNewTemplate] = useState('blank');
 
-  useEffect(() => { loadCanvases(); }, [loadCanvases]);
+  useEffect(() => {
+    loadCanvases();
+    fetchRemoteList(); // 首页资产库也需要汇总远程产出
+  }, [loadCanvases, fetchRemoteList]);
 
   const handleCreate = () => {
     createCanvas(newName.trim(), newTemplate);
@@ -44,12 +50,22 @@ export default function Home() {
       <div className="home-inner">
         <div className="home-head">
           <div>
-            <h1>我的画布</h1>
-            <p className="home-sub">创建并管理你的 AI 视频创作画布</p>
+            <h1>我的工作台</h1>
+            <p className="home-sub">创建并管理你的 AI 视频创作画布与资产</p>
           </div>
           <span className="home-count">{canvases.length} 个画布</span>
         </div>
 
+        <div className="home-tabs">
+          <button className={'home-tab' + (tab === 'canvases' ? ' on' : '')} onClick={() => setTab('canvases')}>
+            <Icon name="film" size={14} /> 我的画布
+          </button>
+          <button className={'home-tab' + (tab === 'assets' ? ' on' : '')} onClick={() => { setTab('assets'); fetchRemoteList(); }}>
+            <Icon name="folderOpen" size={14} /> 资产库
+          </button>
+        </div>
+
+        {tab === 'canvases' ? (
         <div className="canvas-grid">
           {/* 新建画布入口 */}
           <div
@@ -102,6 +118,11 @@ export default function Home() {
             <div className="home-empty">还没有画布，点击左上角「新建画布」开始创作吧。</div>
           )}
         </div>
+        ) : (
+          <div className="home-assets">
+            <AssetPanel insertable={false} />
+          </div>
+        )}
       </div>
     </div>
   );

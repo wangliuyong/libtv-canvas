@@ -15,6 +15,14 @@ function _readCanvases() {
 function _writeCanvases(map) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch {}
 }
+// 资产库持久化：首页/画布页共用同一份全局资产，刷新后不丢（最多保留 300 条元数据）
+const ASSETS_KEY = 'libtv_assets_v1';
+function _readAssets() {
+  try { return JSON.parse(localStorage.getItem(ASSETS_KEY)) || []; } catch { return []; }
+}
+function _writeAssets(list) {
+  try { localStorage.setItem(ASSETS_KEY, JSON.stringify(list.slice(0, 300))); } catch {}
+}
 function _metaList(map) {
   return Object.values(map)
     .map(({ id, name, createdAt, updatedAt, nodeCount }) => ({ id, name, createdAt, updatedAt, nodeCount: nodeCount || 0 }))
@@ -121,7 +129,7 @@ export const useStore = create((set, get) => ({
   future: [],
   selectedId: null,
   models: null,
-  assets: [], // 全局资产库
+  assets: _readAssets(), // 全局资产库（localStorage 持久化）
   jobs: [], // 运行中的任务
 
   // —— UI 状态（不影响画布逻辑）——
@@ -366,12 +374,13 @@ export const useStore = create((set, get) => ({
   },
 
   // 资产入库（本地上传 / 远程产出共用），按 filename+type+source 去重
-  addAsset: (a) =>
-    set((s) => {
-      const exists = s.assets.some((x) => x.filename === a.filename && x.type === a.type && x.source === a.source);
-      if (exists) return {};
-      return { assets: [...s.assets, a] };
-    }),
+  addAsset: (a) => {
+    const exists = get().assets.some((x) => x.filename === a.filename && x.type === a.type && x.source === a.source);
+    if (exists) return;
+    const next = [...get().assets, a];
+    _writeAssets(next);
+    set({ assets: next });
+  },
 
   deleteNode: (id) => {
     get().snapshot();
@@ -562,7 +571,9 @@ export const useStore = create((set, get) => ({
         const assets = (j.assets || []).map((a) => ({ ...a, url: viewUrl(a), source: 'remote', ts: Date.now() }));
         updateNodeData(nodeId, { status: 'success', result: { assets } });
         updateJob(prompt_id, { status: 'success' });
-        set({ assets: [...get().assets, ...assets] });
+        const nextAssets = [...get().assets, ...assets];
+        _writeAssets(nextAssets);
+        set({ assets: nextAssets });
       } catch (e) {
         setTimeout(poll, 2000);
       }
@@ -594,7 +605,9 @@ export const useStore = create((set, get) => ({
           if (j.status === 'running') { if (onProgress) onProgress(j); setTimeout(poll, 1500); return; }
           if (j.status === 'error') { reject(new Error(j.error || '生成失败')); return; }
           const assets = (j.assets || []).map((a) => ({ ...a, url: viewUrl(a), source: 'remote', ts: Date.now() }));
-          set({ assets: [...get().assets, ...assets] });
+          const nextAssets = [...get().assets, ...assets];
+          _writeAssets(nextAssets);
+          set({ assets: nextAssets });
           resolve({ promptId, assets });
         } catch (e) {
           setTimeout(poll, 2000);
@@ -625,6 +638,7 @@ export const useStore = create((set, get) => ({
           const exists = merged.some((x) => x.filename === a.filename && x.type === a.type && x.source === a.source);
           if (!exists) merged.push(a);
         }
+        _writeAssets(merged);
         return { assets: merged };
       });
     } catch (e) { /* ignore */ }

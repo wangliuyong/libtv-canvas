@@ -4,7 +4,7 @@ import Icon from './icons.jsx';
 
 const PAGE_SIZE = 12; // 远程列表每页条数
 
-export default function AssetPanel() {
+export default function AssetPanel({ insertable = true }) {
   const assets = useStore((s) => s.assets);
   const addAssetNode = useStore((s) => s.addAssetNode);
   const updateNodeData = useStore((s) => s.updateNodeData);
@@ -107,8 +107,8 @@ export default function AssetPanel() {
               <div key={(a.filename || i) + '_' + i} className="asset-card">
                 <div
                   className={'asset-media' + (a.media === 'audio' ? ' audio' : '')}
-                  onDoubleClick={() => insert(a)}
-                  title="双击插入到画布"
+                  onDoubleClick={() => (insertable ? insert(a) : openPreview(a))}
+                  title={insertable ? '双击插入到画布' : '双击预览'}
                 >
                   {a.media === 'image' ? <img src={a.url} alt="" />
                     : a.media === 'video' ? <video src={a.url} muted preload="metadata" />
@@ -122,7 +122,7 @@ export default function AssetPanel() {
                   </button>
                 </div>
                 <div className="asset-name">{a.filename}</div>
-                <div className="asset-hint">双击插入画布 · 点图标预览</div>
+                <div className="asset-hint">{insertable ? '双击插入画布 · 点图标预览' : '点击预览 · 打开画布后可插入'}</div>
               </div>
             ))}
           </div>
@@ -148,7 +148,9 @@ export default function AssetPanel() {
                 )}
             </div>
             <div className="apm-actions">
-              <button className="btn primary" onClick={() => { insert(preview); setPreview(null); }}>插入到画布</button>
+              {insertable && (
+                <button className="btn primary" onClick={() => { insert(preview); setPreview(null); }}>插入到画布</button>
+              )}
             </div>
           </div>
         </div>
