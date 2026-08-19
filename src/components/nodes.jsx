@@ -87,7 +87,7 @@ function ToolNode({ id, data, selected }) {
             <Handle
               type="target"
               position={Position.Left}
-              id={inp.type}
+              id={'IN:' + inp.key}
               style={{ background: 'var(--handle-in)', top: `${top}%` }}
             />
             <span className="io-label" style={{ top: `${top}%` }}>

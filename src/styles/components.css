@@ -197,6 +197,12 @@
 .ref-media .ph { width: 100%; height: 82px; border: 1.5px dashed var(--border-2); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 12px; }
 .ref-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .ref-actions .mini.ghost { color: var(--text-3); }
+.ref-multi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 8px; }
+.ref-thumb { position: relative; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; background: #000; }
+.ref-thumb img, .ref-thumb video { width: 100%; height: 72px; object-fit: cover; display: block; }
+.ref-thumb audio { width: 100%; }
+.ref-thumb .mini.ghost { position: absolute; top: 3px; right: 3px; padding: 2px 7px; font-size: 10px; background: rgba(0,0,0,.55); color: #fff; border: none; border-radius: 5px; }
+.ref-thumb .rt-idx { position: absolute; left: 3px; bottom: 3px; font-size: 10px; color: #fff; background: rgba(0,0,0,.55); border-radius: 5px; padding: 1px 6px; }
 .lib-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 9px; }
 .lib-item { border: 1px solid var(--border); background: var(--surface-3); border-radius: var(--r-sm); padding: 4px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
 .lib-item img { width: 100%; height: 42px; object-fit: cover; border-radius: 4px; background: #000; }

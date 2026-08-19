@@ -75,7 +75,22 @@ export default function Inspector({ nodeId } = {}) {
     updateNodeData(node.id, { refs });
   };
 
-  const onUpload = async (e, key, mediaType) => {
+  // 多图输入：在数组末尾追加一张参考；multi 时 refs[key] 始终是数组
+  const pushRef = (key, val) => {
+    const refs = { ...(node.data.refs || {}) };
+    const arr = Array.isArray(refs[key]) ? refs[key] : [];
+    refs[key] = [...arr, val];
+    updateNodeData(node.id, { refs });
+  };
+  const removeRefAt = (key, idx) => {
+    const refs = { ...(node.data.refs || {}) };
+    const arr = Array.isArray(refs[key]) ? refs[key] : [];
+    refs[key] = arr.filter((_, i) => i !== idx);
+    if (refs[key].length === 0) delete refs[key];
+    updateNodeData(node.id, { refs });
+  };
+
+  const onUpload = async (e, key, mediaType, multi) => {
     const f = e.target.files[0]; if (!f) return;
     try {
       const fd = new FormData(); fd.append('file', f);
@@ -84,7 +99,8 @@ export default function Inspector({ nodeId } = {}) {
       const j = await r.json();
       if (j.error) throw new Error(j.error);
       const assetUrl = `/api/view?${new URLSearchParams({ filename: j.name, type: j.type || mediaType, ...(j.subfolder ? { subfolder: j.subfolder } : {}) })}`;
-      if (key) setRef(key, { reupload: { filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType }, assetUrl, label: f.name });
+      const val = { reupload: { filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType }, assetUrl, label: f.name };
+      if (key) { if (multi) pushRef(key, val); else setRef(key, val); }
       else updateNodeData(node.id, { filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType, assetUrl, label: f.name });
       addAsset({ filename: j.name, subfolder: j.subfolder || '', type: j.type || mediaType, media: mediaType, url: assetUrl, label: f.name, source: 'local' });
     } catch (err) {
@@ -155,23 +171,43 @@ export default function Inspector({ nodeId } = {}) {
                     onChange={(e) => setRef(inp.key, e.target.value)} />
                 ) : (
                   <>
-                    <div className="ref-media">
-                      {ref?.assetUrl ? (
-                        inp.type === 'video' ? <video src={ref.assetUrl} muted />
-                          : inp.type === 'audio' ? <audio src={ref.assetUrl} controls />
-                          : <img src={ref.assetUrl} alt="" />
-                      ) : <div className="ph">未设置参考</div>}
-                    </div>
+                    {inp.multi && Array.isArray(ref) && ref.length > 0 && (
+                      <div className="ref-multi">
+                        {ref.map((r, idx) => (
+                          <div className="ref-thumb" key={idx}>
+                            {inp.type === 'video' ? <video src={r.assetUrl} muted />
+                              : inp.type === 'audio' ? <audio src={r.assetUrl} controls />
+                              : <img src={r.assetUrl} alt="" />}
+                            <button className="mini ghost" onClick={() => removeRefAt(inp.key, idx)}>移除</button>
+                            <span className="rt-idx">{idx + 1}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!inp.multi && (
+                      <div className="ref-media">
+                        {ref?.assetUrl ? (
+                          inp.type === 'video' ? <video src={ref.assetUrl} muted />
+                            : inp.type === 'audio' ? <audio src={ref.assetUrl} controls />
+                            : <img src={ref.assetUrl} alt="" />
+                        ) : <div className="ph">未设置参考</div>}
+                      </div>
+                    )}
                     <div className="ref-actions">
-                      <label className="mini">上传<input type="file" hidden onChange={(e) => onUpload(e, inp.key, inp.type)} /></label>
-                      <button className="mini" onClick={() => { setLibOpen(libOpen === inp.key ? null : inp.key); if (libOpen !== inp.key) toggleAssetDrawer(); }}>从资产库选</button>
-                      {ref && <button className="mini ghost" onClick={() => setRef(inp.key, null)}>清除</button>}
+                      <label className="mini">上传<input type="file" hidden onChange={(e) => onUpload(e, inp.key, inp.type, inp.multi)} /></label>
+                      <button className="mini" onClick={() => { setLibOpen(libOpen === inp.key ? null : inp.key); if (libOpen !== inp.key) toggleAssetDrawer(); }}>{inp.multi ? '从资产库添加' : '从资产库选'}</button>
+                      {!inp.multi && ref && <button className="mini ghost" onClick={() => setRef(inp.key, null)}>清除</button>}
+                      {inp.multi && Array.isArray(ref) && ref.length > 0 && <button className="mini ghost" onClick={() => setRef(inp.key, [])}>清空</button>}
                     </div>
                     {libOpen === inp.key && (
                       <div className="lib-pick">
                         {assets.length === 0 && <div className="ph">资产库为空，先运行上游节点或上传</div>}
                         {assets.filter((a) => a.media === inp.type || !a.media).slice(0, 12).map((a, i) => (
-                          <button key={i} className="lib-item" onClick={() => { setRef(inp.key, { reupload: { filename: a.filename, subfolder: a.subfolder, type: a.type }, assetUrl: a.url, label: a.filename }); setLibOpen(null); }}>
+                          <button key={i} className="lib-item" onClick={() => {
+                            const val = { reupload: { filename: a.filename, subfolder: a.subfolder, type: a.type }, assetUrl: a.url, label: a.filename };
+                            if (inp.multi) pushRef(inp.key, val); else setRef(inp.key, val);
+                            setLibOpen(null);
+                          }}>
                             <img src={a.url} alt="" /><span>{a.filename}</span>
                           </button>
                         ))}

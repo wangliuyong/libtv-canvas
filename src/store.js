@@ -35,6 +35,62 @@ function viewUrl(a) {
   return `/api/view?${qs}`;
 }
 
+// —— 内置工作流模板（新建画布时可选，自动预铺节点与连线）——
+function _defaultParams(def) {
+  const p = {};
+  (def.params || []).forEach((x) => { if (x.default !== undefined) p[x.key] = x.default; });
+  return p;
+}
+function _toolNode(id, toolId, x, y) {
+  const def = getTool(toolId);
+  return {
+    id, type: 'tool', position: { x, y },
+    data: { kind: 'tool', tool: toolId, label: def.name, params: _defaultParams(def), status: 'idle', result: null, error: '' },
+    style: { ...NODE_DEFAULT_STYLE.tool },
+  };
+}
+function _assetNode(id, kind, x, y, data = {}) {
+  const labels = { text: '文本', image: '图片', video: '视频', audio: '音频', script: '脚本' };
+  return {
+    id, type: 'asset', position: { x, y },
+    data: { kind, label: data.label || labels[kind] || kind, text: data.text || '', filename: '', subfolder: '', type: 'input', assetUrl: '', ...data },
+    style: { ...NODE_DEFAULT_STYLE.asset },
+  };
+}
+function _edge(source, target, targetKey, sourceKind) {
+  return { id: `e_${source}_${target}_${targetKey}`, source, target, sourceHandle: sourceKind, targetHandle: 'IN:' + targetKey, animated: true };
+}
+
+// MiniMax H3 视频生成：文生视频(t2v) + 图生视频(i2v，首尾帧+参考图)，预设提示词/图片资产并连好线
+function buildMiniMaxVideoTemplate() {
+  const tPrompt = _assetNode('t_prompt', 'text', 60, 320, { label: '视频提示词', text: '镜头缓慢推进，暖色调，电影感，人物自然行走' });
+  const tFirst = _assetNode('t_first', 'image', 60, 80, { label: '首帧图' });
+  const tLast = _assetNode('t_last', 'image', 60, 560, { label: '尾帧图' });
+  const tRef1 = _assetNode('t_ref1', 'image', 60, 760, { label: '参考图1' });
+  const tRef2 = _assetNode('t_ref2', 'image', 60, 960, { label: '参考图2' });
+  const t2v = _toolNode('t_t2v', 't2v', 540, 220);
+  const i2v = _toolNode('t_i2v', 'i2v', 540, 580);
+  const nodes = [tPrompt, tFirst, tLast, tRef1, tRef2, t2v, i2v];
+  const edges = [
+    _edge('t_prompt', 't_t2v', 'prompt', 'text'),
+    _edge('t_prompt', 't_i2v', 'prompt', 'text'),
+    _edge('t_first', 't_i2v', 'first_frame', 'image'),
+    _edge('t_last', 't_i2v', 'last_frame', 'image'),
+    _edge('t_ref1', 't_i2v', 'ref_images', 'image'),
+    _edge('t_ref2', 't_i2v', 'ref_images', 'image'),
+  ];
+  return { nodes, edges };
+}
+
+export const TEMPLATES = {
+  blank: { id: 'blank', name: '空白画布', desc: '从零开始自由搭建', icon: 'plus' },
+  minimax_video: {
+    id: 'minimax_video', name: 'MiniMax H3 视频生成', desc: '文生视频 + 图生视频(首尾帧/参考图)，预铺节点与连线', icon: 'film',
+    build: buildMiniMaxVideoTemplate,
+  },
+};
+export const TEMPLATE_LIST = Object.values(TEMPLATES);
+
 export const useStore = create((set, get) => ({
   nodes: [],
   edges: [],
@@ -65,13 +121,20 @@ export const useStore = create((set, get) => ({
   // 画布读写（localStorage）
   loadCanvases: () => set({ canvases: _metaList(_readCanvases()) }),
 
-  createCanvas: (name) => {
+  createCanvas: (name, templateId) => {
     const id = uid('cv');
     const now = Date.now();
+    let nodes = [], edges = [];
+    const tpl = templateId && TEMPLATES[templateId];
+    if (tpl && tpl.build) {
+      const built = tpl.build();
+      nodes = built.nodes;
+      edges = built.edges;
+    }
     const map = _readCanvases();
-    map[id] = { id, name: (name || '').trim() || '未命名画布', createdAt: now, updatedAt: now, nodeCount: 0, nodes: [], edges: [] };
+    map[id] = { id, name: (name || '').trim() || '未命名画布', createdAt: now, updatedAt: now, nodeCount: nodes.length, nodes, edges };
     _writeCanvases(map);
-    set({ canvases: _metaList(map), currentCanvasId: id, nodes: [], edges: [], selectedId: null, past: [], future: [] });
+    set({ canvases: _metaList(map), currentCanvasId: id, nodes, edges, selectedId: null, past: [], future: [] });
     return id;
   },
 
@@ -205,10 +268,21 @@ export const useStore = create((set, get) => ({
     set({ edges: applyEdgeChanges(c, get().edges) });
   },
   onConnect: (conn) => {
-    // 仅允许 输出类型 === 输入类型 的连接
-    if (conn.sourceHandle !== conn.targetHandle) return;
+    // 目标把手为 IN:<输入key>；仅允许「上游输出媒体类型 === 目标输入类型」的连接
+    const { nodes } = get();
+    const targetNode = nodes.find((n) => n.id === conn.target);
+    if (!targetNode || targetNode.type !== 'tool') return;
+    const tdef = getTool(targetNode.data.tool);
+    if (!tdef) return;
+    const inp = tdef.inputs.find((i) => 'IN:' + i.key === conn.targetHandle);
+    if (!inp) return; // 目标把手不匹配任何输入
+    const srcType = conn.sourceHandle; // 资产/工具输出把手即媒体类型
+    if (inp.type !== srcType) return; // 类型不匹配，禁止连接
+    let edges = get().edges;
+    // 非 multi 输入：同一把手上只允许一条连线，先移除旧连线
+    if (!inp.multi) edges = edges.filter((e) => !(e.target === conn.target && e.targetHandle === conn.targetHandle));
     get().snapshot();
-    set({ edges: addEdge({ ...conn, animated: true }, get().edges) });
+    set({ edges: addEdge({ ...conn, animated: true }, edges) });
   },
 
   addAssetNode: (kind, position) => {
@@ -350,12 +424,24 @@ export const useStore = create((set, get) => ({
       return s.data.filename;
     };
     for (const inp of def.inputs) {
-      const conn = edges.filter((e) => e.target === nodeId && e.targetHandle === inp.type);
-      const vals = conn.map((e) => sourceValue(e.source, e.sourceHandle)).filter((v) => v !== undefined);
+      let vals = edges
+        .filter((e) => e.target === nodeId && e.targetHandle === 'IN:' + inp.key)
+        .map((e) => sourceValue(e.source, e.sourceHandle))
+        .filter((v) => v !== undefined);
+      // 兼容旧画布：当该工具此类型输入唯一时，回退按媒体类型匹配把手
+      if (vals.length === 0) {
+        const sameType = def.inputs.filter((i) => i.type === inp.type);
+        if (sameType.length === 1) {
+          vals = edges
+            .filter((e) => e.target === nodeId && e.targetHandle === inp.type)
+            .map((e) => sourceValue(e.source, e.sourceHandle))
+            .filter((v) => v !== undefined);
+        }
+      }
       if (vals.length > 0) {
         inputs[inp.key] = inp.multi ? vals : (vals[0] ?? undefined);
       } else if (node.data.refs && node.data.refs[inp.key] !== undefined) {
-        // 无上游连线时，回退到属性面板里直接填写的参考/提示
+        // 无上游连线时，回退到属性面板里直接填写的参考/提示（multi 时为数组）
         inputs[inp.key] = node.data.refs[inp.key];
       }
     }
@@ -368,7 +454,7 @@ export const useStore = create((set, get) => ({
     const order = ['clip1', 'clip2', 'clip3', 'clip4'];
     const clips = [];
     for (const h of order) {
-      const conn = edges.find((e) => e.target === nodeId && e.targetHandle === h);
+      const conn = edges.find((e) => e.target === nodeId && e.targetHandle === 'IN:' + h);
       if (!conn) continue;
       const s = nodes.find((n) => n.id === conn.source);
       if (!s) continue;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Icon from './icons.jsx';
-import { useStore } from '../store.js';
+import { useStore, TEMPLATE_LIST } from '../store.js';
 
 function fmtDate(ts) {
   if (!ts) return '';
@@ -20,12 +20,14 @@ export default function Home() {
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newTemplate, setNewTemplate] = useState('blank');
 
   useEffect(() => { loadCanvases(); }, [loadCanvases]);
 
   const handleCreate = () => {
-    createCanvas(newName.trim());
+    createCanvas(newName.trim(), newTemplate);
     setNewName('');
+    setNewTemplate('blank');
     setCreating(false);
     // createCanvas 已把新画布设为 current，自动进入画布页
   };
@@ -64,6 +66,14 @@ export default function Home() {
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
                 />
+                <label className="new-tpl">
+                  <span>模板</span>
+                  <select value={newTemplate} onChange={(e) => setNewTemplate(e.target.value)}>
+                    {TEMPLATE_LIST.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} — {t.desc}</option>
+                    ))}
+                  </select>
+                </label>
                 <div className="new-actions">
                   <button className="btn primary" onClick={handleCreate}>创建</button>
                   <button className="btn" onClick={() => { setCreating(false); setNewName(''); }}>取消</button>

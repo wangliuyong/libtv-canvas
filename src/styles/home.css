@@ -102,6 +102,13 @@
   color: var(--text); border-radius: var(--r-sm); padding: 8px 10px; outline: none; font-size: 14px;
 }
 .new-actions { display: flex; gap: 8px; }
+.new-tpl { display: flex; flex-direction: column; gap: 4px; }
+.new-tpl span { font-size: 11.5px; color: var(--text-3); }
+.new-tpl select {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border-2); color: var(--text);
+  border-radius: var(--r-sm); padding: 7px 9px; outline: none; font-size: 12.5px; cursor: pointer;
+}
+.new-tpl select:focus { border-color: var(--accent); }
 .btn {
   flex: 1; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text);
   padding: 7px 10px; border-radius: var(--r-sm); cursor: pointer; font-size: 13px; font-weight: 600;

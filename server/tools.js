@@ -14,8 +14,20 @@ export const MINIMAX = {
 export const REF2VA_UNET = 'minimax_h3_ref2va_int8_convrot.safetensors';
 export const TURBO_LORA = 'minimax_h3_turbo_v4_step600_ema_comfyui.safetensors';
 
+// 把「上游资产 / 属性面板参考」里的文件名统一解析为 ComfyUI input 目录下的裸文件名。
+// 兼容三种取值：裸字符串（来自资产节点）、{ reupload:{filename,...} }（来自上游工具产出）、
+// { filename }（Inspector 直接选库）。统一返回字符串或 null。
+function pickName(x) {
+  if (!x) return null;
+  if (typeof x === 'string') return x;
+  if (x.reupload) return x.reupload.filename || x.reupload;
+  if (x.filename) return x.filename;
+  return null;
+}
+
 // ---- MiniMax-H3 加速管线（turbo LoRA + 双时钟采样，steps 默认 8）----
-// 这是「视频生成默认使用 MiniMax H3 加速」的核心实现。
+// 支持：首帧(first_frame)、尾帧(last_frame)、多张参考图(ref_images)、驱动/参考音频。
+// task_type 由上层按输入动态选择：T2VA / I2VA / FL2VA(首尾帧) / Ref2VA(参考图) / Hybrid(首尾帧+参考图)。
 function buildMiniMaxH3Accel(p) {
   const n = {};
   n['1'] = { class_type: 'UNETLoader', inputs: { unet_name: REF2VA_UNET, weight_dtype: 'default' } };
@@ -30,15 +42,20 @@ function buildMiniMaxH3Accel(p) {
 
   const refDict = {};
   let rid = 20;
-  (p.refImages || []).forEach((f, i) => { n[String(rid)] = { class_type: 'LoadImage', inputs: { image: f } }; refDict['ref_image_' + i] = [String(rid), 0]; rid++; });
+  (p.refImages || []).map(pickName).filter(Boolean).forEach((f, i) => { n[String(rid)] = { class_type: 'LoadImage', inputs: { image: f } }; refDict['ref_image_' + i] = [String(rid), 0]; rid++; });
   let firstFrame;
-  if (p.firstFrame) { n[String(rid)] = { class_type: 'LoadImage', inputs: { image: p.firstFrame } }; firstFrame = [String(rid), 0]; rid++; }
+  const ff = pickName(p.firstFrame);
+  if (ff) { n[String(rid)] = { class_type: 'LoadImage', inputs: { image: ff } }; firstFrame = [String(rid), 0]; rid++; }
+  let lastFrame;
+  const lf = pickName(p.lastFrame);
+  if (lf) { n[String(rid)] = { class_type: 'LoadImage', inputs: { image: lf } }; lastFrame = [String(rid), 0]; rid++; }
   let driveAudio;
-  if (p.driveAudio) { n[String(rid)] = { class_type: 'LoadAudio', inputs: { audio: p.driveAudio } }; driveAudio = [String(rid), 0]; rid++; }
+  const da = pickName(p.driveAudio);
+  if (da) { n[String(rid)] = { class_type: 'LoadAudio', inputs: { audio: da } }; driveAudio = [String(rid), 0]; rid++; }
   const refAudioDict = {};
-  (p.refAudios || []).forEach((f, i) => { n[String(rid)] = { class_type: 'LoadAudio', inputs: { audio: f } }; refAudioDict['ref_audio_' + i] = [String(rid), 0]; rid++; });
+  (p.refAudios || []).map(pickName).filter(Boolean).forEach((f, i) => { n[String(rid)] = { class_type: 'LoadAudio', inputs: { audio: f } }; refAudioDict['ref_audio_' + i] = [String(rid), 0]; rid++; });
 
-  n['10'] = {
+  const c10 = {
     class_type: 'MiniMaxH3AudioConditioningT8',
     inputs: {
       clip: ['3', 0], video_vae: ['4', 0], audio_vae: ['5', 0],
@@ -48,9 +65,13 @@ function buildMiniMaxH3Accel(p) {
       audio_denoise_strength: p.audioMode === 'remix_source' ? 0.6 : 1.0,
       add_source_as_reference: false, prompt_primary_audio_ordinal: 0, strict_prompt_tags: true,
       ref_image_size: 'match', reference_video_policy: 'official_2_to_15s',
-      ref_images: refDict, first_frame: firstFrame, drive_audio: driveAudio, ref_audios: refAudioDict,
+      ref_images: refDict, drive_audio: driveAudio, ref_audios: refAudioDict,
     },
   };
+  // 首帧/尾帧为可选 link 输入：有则连，无则省略（避免给 T2VA/I2VA 注入空连接）
+  if (firstFrame) c10.inputs.first_frame = firstFrame;
+  if (lastFrame) c10.inputs.last_frame = lastFrame;
+  n['10'] = c10;
   n['8'] = {
     class_type: 'MiniMaxH3DualClockSamplerT8',
     inputs: { model: modelOut, av_latent: ['10', 1], steps: p.steps | 0 || 8, shift_video: 12.0, shift_audio: 3.0, sampler_name: 'dual_clock_euler', scheduler: 'native_flow' },
@@ -108,10 +129,12 @@ export const TOOLS = [
     ],
   },
   {
-    id: 'i2v', name: '图生视频 / 首帧', cat: 'video', icon: '🎬',
-    desc: '以一张图作为首帧，MiniMax-H3 生成带画面视频',
+    id: 'i2v', name: '图生视频 (首尾帧+参考)', cat: 'video', icon: '🎬',
+    desc: 'MiniMax-H3：首帧必填；可补尾帧 / 多张参考图，自动切换 I2VA→FL2VA→Hybrid',
     inputs: [
-      { key: 'image', label: '首帧图', type: 'image', required: true },
+      { key: 'first_frame', label: '首帧图', type: 'image', required: true },
+      { key: 'last_frame', label: '尾帧图', type: 'image' },
+      { key: 'ref_images', label: '参考图', type: 'image', multi: true },
       { key: 'prompt', label: '运动/镜头提示', type: 'text', required: true },
     ],
     outputs: ['video'],
@@ -347,12 +370,22 @@ export function translate(toolId, params = {}, inputs = {}) {
         taskType: 'T2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
         seed: P.seed | 0, prefix: P.prefix || 't2v',
       });
-    case 'i2v':
+    case 'i2v': {
+      const firstFrame = inputs.first_frame;
+      const lastFrame = inputs.last_frame;
+      const refImages = inputs.ref_images || [];
+      // 按实际提供的图像自动选择 task_type：首帧 → I2VA；首尾帧 → FL2VA；再叠加参考图 → Hybrid
+      let task = 'I2VA';
+      if (firstFrame && lastFrame && refImages.length) task = 'Hybrid';
+      else if (firstFrame && lastFrame) task = 'FL2VA';
+      else if (refImages.length) task = 'Ref2VA';
+      else if (firstFrame) task = 'I2VA';
       return buildMiniMaxH3Accel({
         prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 124,
-        taskType: 'I2VA', audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
-        firstFrame: inputs.image, seed: P.seed | 0, prefix: P.prefix || 'i2v',
+        taskType: task, audioMode: 'native', steps: P.steps, turbo: P.turbo !== 'false',
+        firstFrame, lastFrame, refImages, seed: P.seed | 0, prefix: P.prefix || 'i2v',
       });
+    }
     case 'ref2v':
       return buildMiniMaxH3Accel({
         prompt, width: P.width | 0 || 1344, height: P.height | 0 || 768, length: P.length | 0 || 192,
