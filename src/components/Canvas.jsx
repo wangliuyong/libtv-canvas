@@ -2,11 +2,11 @@ import React, { useRef, useState, useMemo } from 'react';
 import ReactFlow, { Background, useReactFlow, ReactFlowProvider, SelectionMode } from 'reactflow';
 import { useStore } from '../store.js';
 import { getTool } from '../../server/tools.js';
-import { AssetNode, ToolNode, GroupNode } from './nodes.jsx';
+import { AssetNode, ToolNode, GroupNode, PreviewNode } from './nodes.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import BottomToolbar from './BottomToolbar.jsx';
 
-const nodeTypes = { asset: AssetNode, tool: ToolNode, group: GroupNode };
+const nodeTypes = { asset: AssetNode, tool: ToolNode, group: GroupNode, preview: PreviewNode };
 
 function Flow() {
   const nodes = useStore((s) => s.nodes);

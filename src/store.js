@@ -58,6 +58,7 @@ const NODE_DEFAULT_STYLE = {
   asset: { width: 224 },
   tool: { width: 248 },
   group: { width: 240, height: 160 },
+  preview: { width: 248 },
 };
 
 function viewUrl(a) {
@@ -120,6 +121,18 @@ function _assetNode(id, kind, x, y, data = {}) {
 function _edge(source, target, targetKey, sourceKind) {
   return { id: `e_${source}_${target}_${targetKey}`, source, target, sourceHandle: sourceKind, targetHandle: 'IN:' + targetKey, animated: true };
 }
+// 预览节点：连接工具的任意输出（image/video/audio），展示该工具生成的素材
+function _previewNode(id, x, y, label) {
+  return {
+    id, type: 'preview', position: { x, y },
+    data: { label: label || '预览' },
+    style: { ...NODE_DEFAULT_STYLE.preview },
+  };
+}
+// 工具输出 → 预览节点的连线（sourceHandle 为工具输出把手即媒体类型，targetHandle 固定 'preview'）
+function _previewEdge(toolId, previewId, media) {
+  return { id: `e_${toolId}_${previewId}`, source: toolId, sourceHandle: media, target: previewId, targetHandle: 'preview', animated: true };
+}
 
 // MiniMax H3 视频生成：文生视频(t2v) + 首尾帧生视频(i2vfl) + 多参考图生视频(ref2v)
 // 首尾帧 / 参考图节点可直接在卡片内输入提示词（支持 @ 引用资产库图片/声音）
@@ -134,18 +147,26 @@ function buildMiniMaxVideoTemplate() {
   i2vfl.data.refs = { prompt: '从首帧平滑过渡到尾帧，镜头稳定，主体保持一致' };
   const ref2v = _toolNode('t_ref2v', 'ref2v', 560, 860);
   ref2v.data.refs = { prompt: '保持参考图中的人物造型与场景一致，镜头缓慢横移' };
-  const nodes = [tPrompt, tFirst, tLast, tRef1, tRef2, t2v, i2vfl, ref2v];
+  // 预览节点：分别连接三个视频工具的输出，仅在连线后才展示生成结果
+  const p_t2v = _previewNode('t_prev_t2v', 940, 260);
+  const p_i2vfl = _previewNode('t_prev_i2vfl', 940, 560);
+  const p_ref2v = _previewNode('t_prev_ref2v', 940, 860);
+  const nodes = [tPrompt, tFirst, tLast, tRef1, tRef2, t2v, i2vfl, ref2v, p_t2v, p_i2vfl, p_ref2v];
   const edges = [
     _edge('t_prompt', 't_t2v', 'prompt', 'text'),
     _edge('t_first', 't_i2vfl', 'first_frame', 'image'),
     _edge('t_last', 't_i2vfl', 'last_frame', 'image'),
     _edge('t_ref1', 't_ref2v', 'ref_images', 'image'),
     _edge('t_ref2', 't_ref2v', 'ref_images', 'image'),
+    _previewEdge('t_t2v', 't_prev_t2v', 'video'),
+    _previewEdge('t_i2vfl', 't_prev_i2vfl', 'video'),
+    _previewEdge('t_ref2v', 't_prev_ref2v', 'video'),
   ];
   return { nodes, edges };
 }
 
-// 全工作流总览：预铺所有主流图文/视频工作流节点，并把资产输入连到各自的必需把手
+// 全工作流总览：预铺所有主流图文/视频工作流节点，并把资产输入连到各自的必需把手；
+// 每个工具右侧再预铺一个「预览」节点，连接该工具输出（剔除节点内部自带预览）
 function buildAllWorkflowsTemplate() {
   // —— 左侧资产输入（可复用，作为各工作流的入口）——
   const aText = _assetNode('w_text', 'text', 40, 40, { label: '文本提示词', text: '输入画面/运动描述…' });
@@ -153,33 +174,33 @@ function buildAllWorkflowsTemplate() {
   const aVid = _assetNode('w_vid', 'video', 40, 380, { label: '参考视频' });
   const aAud = _assetNode('w_aud', 'audio', 40, 550, { label: '参考音频' });
 
-  // —— 图像工作流（第 2 列）——
-  const n_t2i = _toolNode('w_t2i', 't2i', 360, 40);
-  const n_char3 = _toolNode('w_char3', 'char3view', 360, 175);
-  const n_story = _toolNode('w_story', 'storyboard', 360, 310);
-  const n_ref2i = _toolNode('w_ref2i', 'ref2i', 360, 445);
-  const n_up = _toolNode('w_up', 'upscale', 360, 580);
-  const n_color = _toolNode('w_color', 'color', 360, 715);
-  const n_bg = _toolNode('w_bg', 'bg', 360, 850);
-
-  // —— 视频工作流（第 3 列）——
-  const n_t2v = _toolNode('w_t2v', 't2v', 720, 40);
-  const n_i2v = _toolNode('w_i2v', 'i2v', 720, 175);
-  const n_i2vfl = _toolNode('w_i2vfl', 'i2vfl', 720, 310);
-  n_i2vfl.data.refs = { prompt: '从首帧平滑过渡，镜头稳定，主体一致' };
-  const n_ref2v = _toolNode('w_ref2v', 'ref2v', 720, 445);
-  n_ref2v.data.refs = { prompt: '保持参考图人物造型与场景一致，缓慢横移' };
-  const n_a2v = _toolNode('w_a2v', 'a2v', 720, 580);
-  n_a2v.data.refs = { prompt: '人物随音频节奏自然说话，口型同步' };
-  const n_compose = _toolNode('w_compose', 'compose', 720, 715);
-  const n_voice = _toolNode('w_voice', 'voiceswap', 720, 850);
-  const n_interp = _toolNode('w_interp', 'interp', 720, 985);
-
-  const nodes = [
-    aText, aImg, aVid, aAud,
-    n_t2i, n_char3, n_story, n_ref2i, n_up, n_color, n_bg,
-    n_t2v, n_i2v, n_i2vfl, n_ref2v, n_a2v, n_compose, n_voice, n_interp,
+  // 图像工作流（第 2 列 x=360）+ 预览（第 3 列 x=720）
+  const imgTools = [
+    ['w_t2i', 't2i', 40], ['w_char3', 'char3view', 175], ['w_story', 'storyboard', 310],
+    ['w_ref2i', 'ref2i', 445], ['w_up', 'upscale', 580], ['w_color', 'color', 715], ['w_bg', 'bg', 850],
   ];
+  // 视频工作流（第 4 列 x=1080）+ 预览（第 5 列 x=1440）
+  const vidTools = [
+    ['w_t2v', 't2v', 40], ['w_i2v', 'i2v', 175], ['w_i2vfl', 'i2vfl', 310], ['w_ref2v', 'ref2v', 445],
+    ['w_a2v', 'a2v', 580], ['w_compose', 'compose', 715], ['w_voice', 'voiceswap', 850], ['w_interp', 'interp', 985],
+  ];
+
+  const nodes = [aText, aImg, aVid, aAud];
+  const PE = []; // 工具 → 预览 的连线
+  const addTool = (prefix, toolId, y, x, px) => {
+    const node = _toolNode(prefix, toolId, x, y);
+    const prev = _previewNode(prefix + '_prev', px, y);
+    nodes.push(node, prev);
+    PE.push(_previewEdge(prefix, prefix + '_prev', getTool(toolId).outputs[0]));
+    return node;
+  };
+  imgTools.forEach(([id, t, y]) => addTool(id, t, y, 360, 720));
+  vidTools.forEach(([id, t, y]) => addTool(id, t, y, 1080, 1440));
+
+  // 预置提示词（演示用）
+  nodes.find((n) => n.id === 'w_i2vfl').data.refs = { prompt: '从首帧平滑过渡，镜头稳定，主体一致' };
+  nodes.find((n) => n.id === 'w_ref2v').data.refs = { prompt: '保持参考图人物造型与场景一致，缓慢横移' };
+  nodes.find((n) => n.id === 'w_a2v').data.refs = { prompt: '人物随音频节奏自然说话，口型同步' };
 
   // —— 连线：资产 → 各工具的必需把手（部分可选把手也预连以演示流程）——
   const E = [];
@@ -210,7 +231,7 @@ function buildAllWorkflowsTemplate() {
   aud('w_a2v', 'audio');
   aud('w_voice', 'ref_audio');
 
-  return { nodes, edges: E };
+  return { nodes, edges: [...E, ...PE] };
 }
 
 export const TEMPLATES = {
@@ -417,7 +438,15 @@ export const useStore = create((set, get) => ({
     // 目标把手为 IN:<输入key>；仅允许「上游输出媒体类型 === 目标输入类型」的连接
     const { nodes } = get();
     const targetNode = nodes.find((n) => n.id === conn.target);
-    if (!targetNode || targetNode.type !== 'tool') return;
+    if (!targetNode) return;
+    // 预览节点：接受任意媒体类型的上游输出（image/video/audio），同一输入仅保留一条连线
+    if (targetNode.type === 'preview') {
+      let edges = get().edges.filter((e) => !(e.target === conn.target && e.targetHandle === conn.targetHandle));
+      get().snapshot();
+      set({ edges: addEdge({ ...conn, animated: true }, edges) });
+      return;
+    }
+    if (targetNode.type !== 'tool') return;
     const tdef = getTool(targetNode.data.tool);
     if (!tdef) return;
     const inp = tdef.inputs.find((i) => 'IN:' + i.key === conn.targetHandle);
@@ -458,6 +487,19 @@ export const useStore = create((set, get) => ({
       position: position || { x: 360 + Math.random() * 200, y: 80 + Math.random() * 200 },
       data: { kind: 'tool', tool: toolId, label: def.name, params, status: 'idle', result: null, error: '' },
       style: { ...NODE_DEFAULT_STYLE.tool },
+    };
+    get().snapshot();
+    set({ nodes: [...get().nodes, node], selectedId: id });
+    return id;
+  },
+
+  addPreviewNode: (position) => {
+    const id = uid('prev');
+    const node = {
+      id, type: 'preview',
+      position: position || { x: 520 + Math.random() * 200, y: 120 + Math.random() * 200 },
+      data: { label: '预览' },
+      style: { ...NODE_DEFAULT_STYLE.preview },
     };
     get().snapshot();
     set({ nodes: [...get().nodes, node], selectedId: id });

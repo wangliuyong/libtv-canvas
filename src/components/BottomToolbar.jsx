@@ -10,6 +10,7 @@ const BASIC = [
   { kind: 'image', label: '图片' },
   { kind: 'video', label: '视频' },
   { kind: 'audio', label: '音频' },
+  { kind: 'preview', label: '预览' },
 ];
 
 const CAT_NAME = { image: '图像类', video: '视频类' };
@@ -18,6 +19,7 @@ export default function BottomToolbar() {
   const rf = useReactFlow();
   const addAssetNode = useStore((s) => s.addAssetNode);
   const addToolNode = useStore((s) => s.addToolNode);
+  const addPreviewNode = useStore((s) => s.addPreviewNode);
   const insertTemplate = useStore((s) => s.insertTemplate);
   const toggleAssetDrawer = useStore((s) => s.toggleAssetDrawer);
   const canvasLocked = useStore((s) => s.canvasLocked);
@@ -60,8 +62,8 @@ export default function BottomToolbar() {
           <div className="anm-title">添加节点</div>
           <div className="anm-sec">
             {BASIC.map((b) => (
-              <button key={b.kind} className="anm-item" data-kind={b.kind} onClick={() => addAtCenter((x, y) => addAssetNode(b.kind, { x, y }))}>
-                <Icon name={b.kind} size={16} /> {b.label}
+              <button key={b.kind} className="anm-item" data-kind={b.kind} onClick={() => addAtCenter((x, y) => (b.kind === 'preview' ? addPreviewNode({ x, y }) : addAssetNode(b.kind, { x, y })))}>
+                <Icon name={b.kind === 'preview' ? 'eye' : b.kind} size={16} /> {b.label}
               </button>
             ))}
           </div>

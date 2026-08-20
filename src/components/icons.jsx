@@ -1,8 +1,8 @@
 import {
   FileText, ScrollText, Image as ImageIcon, Film, Video, AudioLines,
   Users, Clapperboard, Images, Search, Palette, FastForward, Sun, ImagePlus,
-  Globe, Save, Download, Upload, FolderOpen, PanelLeftClose, PanelLeftOpen, Play,
-  Loader2, CheckCircle2, XCircle, X, Copy, LayoutGrid, Edit3, Trash2, Maximize, Group, Ungroup,
+  Globe, Save, Download, Upload, FolderOpen, PanelLeftClose, PanelLeftOpen,   Play,
+  Loader2, CheckCircle2, XCircle, X, Copy, LayoutGrid, Edit3, Trash2, Maximize, Group, Ungroup, Eye,
   RefreshCw, ChevronLeft, ChevronRight, Plus, ZoomIn, ZoomOut, Fullscreen, Lock, Unlock, HelpCircle, Settings,
 } from 'lucide-react';
 
@@ -20,7 +20,7 @@ const MAP = {
   play: Play, loader: Loader2, check: CheckCircle2, xCircle: XCircle, x: X,
   // 右键菜单 / 编组
   copy: Copy, grid: LayoutGrid, film: Film, edit: Edit3, trash: Trash2,
-  maximize: Maximize, group: Group, ungroup: Ungroup,
+  maximize: Maximize, group: Group, ungroup: Ungroup, eye: Eye,
   refreshCw: RefreshCw, chevronLeft: ChevronLeft, chevronRight: ChevronRight,
   plus: Plus, zoomIn: ZoomIn, zoomOut: ZoomOut, fullscreen: Fullscreen,
   lock: Lock, unlock: Unlock, helpCircle: HelpCircle, settings: Settings,

@@ -21,6 +21,8 @@
 .node-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lnode.asset { border-color: var(--node-asset); min-height: 64px; }
 .lnode.tool { border-color: var(--node-tool); min-height: 96px; }
+.lnode.preview { border-color: var(--accent); min-height: 120px; }
+.lnode.preview .lnode-h > :first-child { color: var(--accent); }
 .lnode-h > :first-child { flex: 0 0 auto; color: var(--text); }
 
 /* 选中时的「重置尺寸」小按钮（贴合标题右侧） */
@@ -155,7 +157,8 @@
   z-index: 5;
 }
 
-/* 产出区：空时图片/视频图标占位；生成后展示真实素材 */
+/* 产出区 / 预览节点：空时图片/视频图标占位；生成后展示真实素材 */
+.prev-body { margin-top: 9px; }
 .result { margin-top: 9px; }
 .result-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

@@ -72,8 +72,6 @@ function ToolNode({ id, data, selected }) {
   const status = data.status || 'idle';
   const statusText = { idle: '', running: '生成中', success: '完成', error: '失败' }[status] || '';
   const hasPrompt = def.inputs.some((i) => i.key === 'prompt');
-  const outs = def.outputs || [];
-  const outKind = outs.includes('video') ? 'video' : (outs.includes('image') ? 'image' : (outs.includes('audio') ? 'audio' : null));
   const promptRef = useRef(null);
   const [mention, setMention] = useState(null); // { open, atPos, endPos, value, items }
 
@@ -214,12 +212,30 @@ function ToolNode({ id, data, selected }) {
         <Handle key={o} type="source" position={Position.Right} id={o} style={{ background: 'var(--node-tool)' }} />
       ))}
 
-      {/* 产出区：无结果时按输出类型显示图片/视频图标占位；生成后展示真实素材 */}
-      {outKind && (
-        <div className="result">
-          {data.result?.assets?.length > 0 ? (
+      {data.error && <div className="err">{data.error}</div>}
+      </div>
+    </>
+  );
+}
+
+function PreviewNode({ id, data, selected }) {
+  const resetNodeSize = useStore((s) => s.resetNodeSize);
+  const nodes = useStore((s) => s.nodes);
+  const edges = useStore((s) => s.edges);
+  // 读取连到本预览节点的上游工具产出
+  const incoming = edges.find((e) => e.target === id);
+  const src = incoming ? nodes.find((n) => n.id === incoming.source) : null;
+  const assets = src?.data?.result?.assets || [];
+  const mediaKind = incoming?.sourceHandle || (assets[0]?.media) || null;
+  return (
+    <>
+      <NodeResizer isVisible={selected} minWidth={200} minHeight={120} />
+      <div className={'lnode preview ' + (selected ? 'sel' : '')}>
+        <div className="lnode-h"><Icon name="eye" /><span className="node-title">{data.label || '预览'}</span>{selected && <button className="node-reset" title="重置尺寸" onMouseDown={(e) => e.stopPropagation()} onClick={() => resetNodeSize(id)}><Icon name="maximize" size={12} /></button>}</div>
+        <div className="prev-body">
+          {assets.length > 0 ? (
             <div className="result-grid">
-              {data.result.assets.slice(0, 8).map((a, i) => (
+              {assets.slice(0, 8).map((a, i) => (
                 <a key={i} className={'res-item' + (a.media === 'video' ? ' video' : '')} href={a.url} target="_blank" rel="noreferrer" title={a.filename || a.media}>
                   {a.media === 'image' ? <img src={a.url} alt="" loading="lazy" />
                     : a.media === 'video' ? <video src={a.url} muted controls />
@@ -229,13 +245,13 @@ function ToolNode({ id, data, selected }) {
             </div>
           ) : (
             <div className="result-empty">
-              <Icon name={outKind} size={28} />
-              <span>{outKind === 'video' ? '视频将在此生成' : outKind === 'image' ? '图片将在此生成' : '音频将在此生成'}</span>
+              <Icon name={mediaKind || 'eye'} size={28} />
+              <span>{mediaKind ? (mediaKind === 'video' ? '连接视频节点以预览' : mediaKind === 'image' ? '连接图片节点以预览' : '连接音频节点以预览') : '连接工具输出以预览'}</span>
             </div>
           )}
         </div>
-      )}
-      {data.error && <div className="err">{data.error}</div>}
+        <Handle type="target" position={Position.Left} id="preview" style={{ background: 'var(--node-tool)' }} />
+        <Handle type="source" position={Position.Right} id="preview" style={{ background: 'var(--node-tool)' }} />
       </div>
     </>
   );
@@ -252,4 +268,4 @@ function GroupNode({ data, selected }) {
   );
 }
 
-export { AssetNode, ToolNode, GroupNode };
+export { AssetNode, ToolNode, GroupNode, PreviewNode };
