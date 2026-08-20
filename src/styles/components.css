@@ -122,14 +122,25 @@
 .run:disabled { background: var(--border-2); box-shadow: none; cursor: default; color: var(--text-3); }
 .run.big { margin-top: 12px; padding: 11px; font-size: 13.5px; }
 
-/* 输入标签：贴在卡片左边框内侧，垂直位置与对应把手对齐 */
+/* 输入标签：贴在卡片左边框内侧，垂直位置与对应把手对齐；默认隐藏，悬停到连接点时显示 */
 .io-label {
   position: absolute; left: 14px;
   transform: translateY(-50%);
   font-size: 11px; font-weight: 600; color: var(--text-2);
   background: var(--surface); padding: 1px 7px;
   border: 1px solid var(--border); border-radius: 5px;
-  box-shadow: var(--sh-sm); pointer-events: auto; white-space: nowrap;
+  box-shadow: var(--sh-sm); pointer-events: none; white-space: nowrap;
+  opacity: 0; transition: opacity .12s;
+}
+/* 悬停到对应输入把手时，才显示该输入的标签提示 */
+.lnode .react-flow__handle:hover + .io-label { opacity: 1; }
+/* 连接点 hover 反馈：放大 + 品牌色光晕，便于定位 */
+.lnode .react-flow__handle {
+  opacity: .85; transition: opacity .12s, transform .12s, box-shadow .12s;
+}
+.lnode .react-flow__handle:hover {
+  opacity: 1; transform: scale(1.5); box-shadow: 0 0 0 4px var(--accent-ring);
+  z-index: 5;
 }
 
 /* 产出缩略 */
