@@ -145,11 +145,83 @@ function buildMiniMaxVideoTemplate() {
   return { nodes, edges };
 }
 
+// 全工作流总览：预铺所有主流图文/视频工作流节点，并把资产输入连到各自的必需把手
+function buildAllWorkflowsTemplate() {
+  // —— 左侧资产输入（可复用，作为各工作流的入口）——
+  const aText = _assetNode('w_text', 'text', 40, 40, { label: '文本提示词', text: '输入画面/运动描述…' });
+  const aImg = _assetNode('w_img', 'image', 40, 210, { label: '参考图片' });
+  const aVid = _assetNode('w_vid', 'video', 40, 380, { label: '参考视频' });
+  const aAud = _assetNode('w_aud', 'audio', 40, 550, { label: '参考音频' });
+
+  // —— 图像工作流（第 2 列）——
+  const n_t2i = _toolNode('w_t2i', 't2i', 360, 40);
+  const n_char3 = _toolNode('w_char3', 'char3view', 360, 175);
+  const n_story = _toolNode('w_story', 'storyboard', 360, 310);
+  const n_ref2i = _toolNode('w_ref2i', 'ref2i', 360, 445);
+  const n_up = _toolNode('w_up', 'upscale', 360, 580);
+  const n_color = _toolNode('w_color', 'color', 360, 715);
+  const n_bg = _toolNode('w_bg', 'bg', 360, 850);
+
+  // —— 视频工作流（第 3 列）——
+  const n_t2v = _toolNode('w_t2v', 't2v', 720, 40);
+  const n_i2v = _toolNode('w_i2v', 'i2v', 720, 175);
+  const n_i2vfl = _toolNode('w_i2vfl', 'i2vfl', 720, 310);
+  n_i2vfl.data.refs = { prompt: '从首帧平滑过渡，镜头稳定，主体一致' };
+  const n_ref2v = _toolNode('w_ref2v', 'ref2v', 720, 445);
+  n_ref2v.data.refs = { prompt: '保持参考图人物造型与场景一致，缓慢横移' };
+  const n_a2v = _toolNode('w_a2v', 'a2v', 720, 580);
+  n_a2v.data.refs = { prompt: '人物随音频节奏自然说话，口型同步' };
+  const n_compose = _toolNode('w_compose', 'compose', 720, 715);
+  const n_voice = _toolNode('w_voice', 'voiceswap', 720, 850);
+  const n_interp = _toolNode('w_interp', 'interp', 720, 985);
+
+  const nodes = [
+    aText, aImg, aVid, aAud,
+    n_t2i, n_char3, n_story, n_ref2i, n_up, n_color, n_bg,
+    n_t2v, n_i2v, n_i2vfl, n_ref2v, n_a2v, n_compose, n_voice, n_interp,
+  ];
+
+  // —— 连线：资产 → 各工具的必需把手（部分可选把手也预连以演示流程）——
+  const E = [];
+  const txt = (t, k) => E.push(_edge('w_text', t, k, 'text'));
+  const img = (t, k) => E.push(_edge('w_img', t, k, 'image'));
+  const vid = (t, k) => E.push(_edge('w_vid', t, k, 'video'));
+  const aud = (t, k) => E.push(_edge('w_aud', t, k, 'audio'));
+
+  // 文本提示词 → 所有 prompt 把手
+  ['w_t2i', 'w_char3', 'w_story', 'w_ref2i', 'w_bg', 'w_t2v', 'w_i2v', 'w_i2vfl', 'w_ref2v', 'w_a2v'].forEach((t) => txt(t, 'prompt'));
+  // 图片 → 各图像/视频工具的图片把手
+  img('w_ref2i', 'image');
+  img('w_up', 'image');
+  img('w_color', 'image');
+  img('w_color', 'reference');
+  img('w_bg', 'image');
+  img('w_i2v', 'image');
+  img('w_i2vfl', 'first_frame');
+  img('w_i2vfl', 'last_frame');
+  img('w_ref2v', 'ref_images');
+  img('w_a2v', 'ref_images');
+  // 视频 → 视频工具
+  vid('w_compose', 'clip1');
+  vid('w_voice', 'video');
+  vid('w_interp', 'video');
+  // 音频 → 音频工具
+  aud('w_ref2v', 'audio');
+  aud('w_a2v', 'audio');
+  aud('w_voice', 'ref_audio');
+
+  return { nodes, edges: E };
+}
+
 export const TEMPLATES = {
   blank: { id: 'blank', name: '空白画布', desc: '从零开始自由搭建', icon: 'plus' },
   minimax_video: {
     id: 'minimax_video', name: 'MiniMax H3 视频生成', desc: '文生视频 + 图生视频(首尾帧/参考图)，预铺节点与连线', icon: 'film',
     build: buildMiniMaxVideoTemplate,
+  },
+  all_workflows: {
+    id: 'all_workflows', name: '全工作流总览', desc: '预铺所有主流图文/视频工作流节点与连线（文生图/角色三视图/分镜/参考生图/放大/调色/换背景 + 文生视频/图生视频/首尾帧/多参考/音频生视频/合成/换音色/补帧）', icon: 'grid',
+    build: buildAllWorkflowsTemplate,
   },
 };
 export const TEMPLATE_LIST = Object.values(TEMPLATES);
