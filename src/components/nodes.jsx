@@ -72,6 +72,8 @@ function ToolNode({ id, data, selected }) {
   const status = data.status || 'idle';
   const statusText = { idle: '', running: '生成中', success: '完成', error: '失败' }[status] || '';
   const hasPrompt = def.inputs.some((i) => i.key === 'prompt');
+  const outs = def.outputs || [];
+  const outKind = outs.includes('video') ? 'video' : (outs.includes('image') ? 'image' : (outs.includes('audio') ? 'audio' : null));
   const promptRef = useRef(null);
   const [mention, setMention] = useState(null); // { open, atPos, endPos, value, items }
 
@@ -155,7 +157,7 @@ function ToolNode({ id, data, selected }) {
     <>
       <NodeResizer isVisible={selected} minWidth={200} minHeight={92} />
       <div className={'lnode tool ' + (selected ? 'sel' : '')}>
-      <div className="lnode-h"><Icon name={def.id} /><span className="node-title">{data.label}</span><span className="badge" title={statusText}><span className={'sdot ' + status} /></span>{selected && <button className="node-reset" title="重置尺寸" onMouseDown={(e) => e.stopPropagation()} onClick={() => resetNodeSize(id)}><Icon name="maximize" size={12} /></button>}</div>
+      <div className="lnode-h"><Icon name={def.id} /><span className="node-title">{data.label}</span><span className="badge" title={statusText}><span className={'sdot ' + status} /></span><button className={'run-mini' + (status === 'running' ? ' busy' : '')} title={status === 'running' ? '生成中…' : '运行'} onMouseDown={(e) => e.stopPropagation()} onClick={() => runNode(id)}><Icon name={status === 'running' ? 'loader' : 'play'} size={13} /></button>{selected && <button className="node-reset" title="重置尺寸" onMouseDown={(e) => e.stopPropagation()} onClick={() => resetNodeSize(id)}><Icon name="maximize" size={12} /></button>}</div>
       <div className="tn-desc">{def.desc}</div>
 
       {/* 节点内直接输入提示词（含 prompt 输入的工具），输入 @ 可选已连线的图片/声音 */}
@@ -188,10 +190,6 @@ function ToolNode({ id, data, selected }) {
         </div>
       )}
 
-      <button className="run" disabled={status === 'running'} onClick={() => runNode(id)} title={status === 'running' ? '生成中…' : '运行'}>
-        {status === 'running' ? <Icon name="loader" size={14} /> : <><Icon name="play" size={14} /> 运行</>}
-      </button>
-
       {/* 输入把手：直接贴在卡片左边框中心线，多输入沿边框垂直均布 */}
       {def.inputs.map((inp, i) => {
         const n = def.inputs.length;
@@ -216,15 +214,25 @@ function ToolNode({ id, data, selected }) {
         <Handle key={o} type="source" position={Position.Right} id={o} style={{ background: 'var(--node-tool)' }} />
       ))}
 
-      {data.result?.assets?.length > 0 && (
+      {/* 产出区：无结果时按输出类型显示图片/视频图标占位；生成后展示真实素材 */}
+      {outKind && (
         <div className="result">
-          {data.result.assets.slice(0, 4).map((a, i) => (
-            <a key={i} href={a.url} target="_blank" rel="noreferrer">
-              {a.media === 'image' ? <img src={a.url} alt="" />
-                : a.media === 'video' ? <video src={a.url} muted />
-                : <Icon name="audio" size={18} />}
-            </a>
-          ))}
+          {data.result?.assets?.length > 0 ? (
+            <div className="result-grid">
+              {data.result.assets.slice(0, 8).map((a, i) => (
+                <a key={i} className={'res-item' + (a.media === 'video' ? ' video' : '')} href={a.url} target="_blank" rel="noreferrer" title={a.filename || a.media}>
+                  {a.media === 'image' ? <img src={a.url} alt="" loading="lazy" />
+                    : a.media === 'video' ? <video src={a.url} muted controls />
+                    : <Icon name="audio" size={18} />}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="result-empty">
+              <Icon name={outKind} size={28} />
+              <span>{outKind === 'video' ? '视频将在此生成' : outKind === 'image' ? '图片将在此生成' : '音频将在此生成'}</span>
+            </div>
+          )}
         </div>
       )}
       {data.error && <div className="err">{data.error}</div>}

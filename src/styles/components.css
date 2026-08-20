@@ -33,6 +33,18 @@
 }
 .node-reset:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .lnode.tool .node-reset { margin-left: 8px; }
+
+/* 标题栏右侧运行图标按钮 */
+.lnode-h .run-mini {
+  margin-left: 8px; flex: 0 0 auto;
+  width: 24px; height: 24px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  display: inline-grid; place-items: center;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
+}
+.lnode-h .run-mini:hover { background: var(--grad-brand); border-color: transparent; color: #fff; transform: translateY(-1px); }
+.lnode-h .run-mini:active { transform: translateY(0); }
+.lnode-h .run-mini.busy { color: var(--warning); border-color: var(--warning); animation: spin 0.9s linear infinite; pointer-events: none; }
 .lnode-h .badge {
   margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-2);
   background: var(--surface-2); border: 1px solid var(--border);
@@ -143,12 +155,26 @@
   z-index: 5;
 }
 
-/* 产出缩略 */
-.result { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
-.result img, .result video {
-  width: 58px; height: 42px; object-fit: cover; border-radius: 6px; background: #000;
-  border: 1px solid var(--border); box-shadow: var(--sh-sm);
+/* 产出区：空时图片/视频图标占位；生成后展示真实素材 */
+.result { margin-top: 9px; }
+.result-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 7px; height: 96px;
+  border: 1.5px dashed var(--border-2); border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text-3);
 }
+.result-empty svg { opacity: .75; }
+.result-empty span { font-size: 11.5px; }
+.result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.res-item {
+  display: block; border-radius: var(--r-sm); overflow: hidden;
+  border: 1px solid var(--border); background: #000; box-shadow: var(--sh-sm);
+  transition: border-color var(--t-fast);
+}
+.res-item:hover { border-color: var(--accent); }
+.res-item img, .res-item video { width: 100%; height: 76px; object-fit: cover; display: block; }
+.res-item.video { grid-column: 1 / -1; }
+.res-item.video video { height: auto; max-height: 220px; }
 .err { color: var(--error); font-size: 11.5px; margin-top: 7px; line-height: 1.5; }
 
 /* ============================ 属性维护模态 ============================ */
