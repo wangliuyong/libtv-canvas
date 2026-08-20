@@ -199,7 +199,7 @@ export default function Inspector({ nodeId } = {}) {
                   <span className="ref-type">{inp.type}</span>
                 </div>
                 {isText ? (
-                  <textarea rows={3} placeholder="提示词 / 文本…" value={typeof ref === 'string' ? ref : ''}
+                  <textarea className="ref-prompt" rows={3} placeholder="提示词 / 文本…" value={typeof ref === 'string' ? ref : ''}
                     onChange={(e) => setRef(inp.key, e.target.value)} />
                 ) : (
                   <>

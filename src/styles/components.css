@@ -231,7 +231,19 @@
 .ref-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
 .ref-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .ref-type { font-size: 10.5px; color: var(--text-3); background: var(--surface-3); border: 1px solid var(--border); padding: 1px 7px; border-radius: 5px; }
-.ref-slot textarea { width: 100%; min-height: 56px; resize: vertical; margin-bottom: 2px; }
+.ref-slot textarea.ref-prompt {
+  width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical;
+  border: 1px solid var(--border-2); border-radius: var(--r-md);
+  background: var(--surface-3); color: var(--text);
+  padding: 11px 13px; font-size: 13.5px; line-height: 1.6; font-family: inherit;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+.ref-slot textarea.ref-prompt::placeholder { color: var(--text-3); }
+.ref-slot textarea.ref-prompt:hover { background: var(--surface-3); border-color: var(--border); }
+.ref-slot textarea.ref-prompt:focus {
+  outline: none; border-color: var(--accent); background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-ring), inset 0 1px 2px rgba(0,0,0,.08);
+}
 .ref-media { display: flex; justify-content: center; margin-bottom: 7px; }
 .ref-media img, .ref-media video { max-width: 100%; max-height: 124px; border-radius: var(--r-sm); background: #000; border: 1px solid var(--border); }
 .ref-media .ph { width: 100%; height: 82px; border: 1.5px dashed var(--border-2); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 12px; }
