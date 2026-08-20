@@ -464,6 +464,43 @@ export const useStore = create((set, get) => ({
     return id;
   },
 
+  // 在当前画布中插入一套预制工作流（模板）。重映射节点 id 避免与画布已有节点冲突，
+  // 并自动排布到现有内容的右侧。传入 position 则以其为锚点（模板内部坐标叠加其上）。
+  insertTemplate: (templateId, position) => {
+    const tpl = TEMPLATES[templateId];
+    if (!tpl || !tpl.build) return { nodes: [], edges: [] };
+    const built = tpl.build();
+    const idMap = {};
+    // 默认排布：放在现有内容最右侧；无内容则从 (120,120) 起
+    let startX = 120, startY = 120;
+    const cur = get().nodes;
+    if (cur.length) {
+      const maxX = Math.max(...cur.map((n) => n.position.x + (n.width || 220)));
+      const minY = Math.min(...cur.map((n) => n.position.y));
+      startX = maxX + 80; startY = minY;
+    }
+    const anchor = position || { x: startX - 40, y: startY - 40 };
+    const newNodes = built.nodes.map((n) => {
+      const nid = uid(n.type === 'tool' ? 'tool' : (n.data?.kind || 'n'));
+      idMap[n.id] = nid;
+      return {
+        ...n,
+        id: nid,
+        position: { x: anchor.x + (n.position?.x || 0), y: anchor.y + (n.position?.y || 0) },
+        selected: false,
+      };
+    });
+    const newEdges = built.edges.map((e) => ({
+      ...e,
+      id: `e_${idMap[e.source]}_${idMap[e.target]}_${e.targetHandle}`,
+      source: idMap[e.source],
+      target: idMap[e.target],
+    }));
+    get().snapshot();
+    set({ nodes: [...get().nodes, ...newNodes], edges: [...get().edges, ...newEdges] });
+    return { nodes: newNodes, edges: newEdges };
+  },
+
   updateNodeData: (id, patch) =>
     set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }),
 

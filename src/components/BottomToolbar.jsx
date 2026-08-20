@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useReactFlow } from 'reactflow';
-import { useStore } from '../store.js';
+import { useStore, TEMPLATE_LIST } from '../store.js';
 import { TOOLS } from '../../server/tools.js';
 import Icon from './icons.jsx';
 
@@ -18,6 +18,7 @@ export default function BottomToolbar() {
   const rf = useReactFlow();
   const addAssetNode = useStore((s) => s.addAssetNode);
   const addToolNode = useStore((s) => s.addToolNode);
+  const insertTemplate = useStore((s) => s.insertTemplate);
   const toggleAssetDrawer = useStore((s) => s.toggleAssetDrawer);
   const canvasLocked = useStore((s) => s.canvasLocked);
   const toggleCanvasLock = useStore((s) => s.toggleCanvasLock);
@@ -75,6 +76,15 @@ export default function BottomToolbar() {
                   </button>
                 ))}
               </div>
+            ))}
+          </div>
+          <div className="anm-divider" />
+          <div className="anm-sec">
+            <div className="anm-sub">预制工作流</div>
+            {TEMPLATE_LIST.filter((t) => t.id !== 'blank').map((t) => (
+              <button key={t.id} className="anm-item wf" onClick={() => { insertTemplate(t.id); setMenuOpen(false); }} title={t.desc}>
+                <Icon name={t.icon || 'grid'} size={16} /> {t.name}
+              </button>
             ))}
           </div>
           <div className="anm-divider" />
